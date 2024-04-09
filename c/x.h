@@ -11,11 +11,11 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-02-22 17:17
-Version: v0.6.12
+Last update: 2024-04-08 21:01
+Version: v0.6.13
 ******************************************************************************/
 #ifndef X_H
-#define X_H X_VER(0, 6, 12)
+#define X_H X_VER(0, 6, 13)
 
 
 /** Table of Contents
@@ -435,6 +435,8 @@ X_INLINE double x_duration(
 #define x_fail(err) ((err) != 0)
 
 X_INLINE long long x_file_size(const char* file);
+
+X_INLINE x_err x_fopen(FILE** stream, const char* file, const char* mode);
 
 #define x_free(ptr) do { \
   if (ptr != NULL) { \
@@ -1301,6 +1303,23 @@ long long x_file_size(const char* file)
 #endif
 
   return (err == 0 ? s.st_size : -1);
+}
+
+x_err x_fopen(FILE** stream, const char* file, const char* mode)
+{
+#if X_WINDOWS
+  errno_t eno = fopen_s(stream, file, mode);
+  if (eno != 0) {
+    return x_err_set(x_err_posix, eno);
+  }
+#else
+  *stream = fopen(file, mode);
+  if (*stream == nullptr) {
+    return x_err_set(x_err_posix);
+  }
+#endif
+
+  return x_ok();
 }
 
 const char* x_full_path(char* dst, const char* src)
