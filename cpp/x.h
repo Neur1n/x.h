@@ -11,11 +11,11 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-04-08 20:59
-Version: v0.1.16
+Last update: 2024-04-09 21:40
+Version: v0.1.17
 ******************************************************************************/
 #ifndef X_H
-#define X_H X_VER(0, 1, 16)
+#define X_H X_VER(0, 1, 17)
 
 
 /** Table of Contents
@@ -219,6 +219,7 @@ Version: v0.1.16
 #include <cstdlib>
 
 #include <sys/ioctl.h>
+#include <sys/sysinfo.h>
 #include <termios.h>
 #include <unistd.h>
 #else
@@ -368,6 +369,8 @@ x_lcm(const T m, const T n);
 
 template<typename T>
 X_INLINE x_err x_malloc(T*& ptr, const size_t size);
+
+X_INLINE x_err x_meminfo(size_t* avail, size_t* total);
 
 template<typename T>
 X_INLINE constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
@@ -1006,6 +1009,45 @@ x_err x_malloc(T*& ptr, const size_t size)
   }
 
   return x_err();
+}
+
+X_INLINE x_err x_meminfo(size_t* avail, size_t* total)
+{
+  x_err err;
+
+  if (avail == nullptr && total == nullptr) {
+    return err.set(x_err_posix, EINVAL);
+  }
+
+#if X_WINDOWS
+  MEMORYSTATUSEX status{0};
+  status.dwLength = sizeof(status);
+
+  if (!GlobalMemoryStatusEx(&status)) {
+    return err.set(x_err_win32);
+  }
+
+  if (avail) {
+    *avail = static_cast<size_t>(status.ullAvailPhys);
+  }
+  if (total) {
+    *total = static_cast<size_t>(status.ullTotalPhys);
+  }
+#else
+  struct sysinfo info{0};
+  if (sysinfo(&info) != 0) {
+    return err.set(x_err_posix);
+  }
+
+  if (avail) {
+    *avail = static_cast<size_t>(info.freeram);
+  }
+  if (total) {
+    *total = static_cast<size_t>(info.totalram);
+  }
+#endif
+
+  return err;
 }
 
 template<typename T>

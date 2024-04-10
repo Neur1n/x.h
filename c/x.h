@@ -11,11 +11,11 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-04-08 21:01
-Version: v0.6.13
+Last update: 2024-04-10 12:53
+Version: v0.6.14
 ******************************************************************************/
 #ifndef X_H
-#define X_H X_VER(0, 6, 13)
+#define X_H X_VER(0, 6, 14)
 
 
 /** Table of Contents
@@ -240,7 +240,9 @@ Version: v0.6.13
 #include <ctype.h>
 #include <limits.h>
 #include <stdlib.h>
+
 #include <sys/ioctl.h>
+#include <sys/sysinfo.h>
 #include <termios.h>
 #include <unistd.h>
 #else
@@ -454,6 +456,8 @@ X_INLINE int x_getch();
 X_INLINE size_t x_lcm(const size_t m, const size_t n);
 
 X_INLINE x_err x_malloc(void** ptr, const size_t size);
+
+X_INLINE x_err x_meminfo(size_t* avail, size_t* total);
 
 X_INLINE size_t x_next_exp(const uint64_t base, const uint64_t src);
 
@@ -1428,6 +1432,43 @@ x_err x_malloc(void** ptr, const size_t size)
   if (*ptr == NULL) {
     return x_err_set(x_err_posix, ENOMEM);
   }
+
+  return x_ok();
+}
+
+x_err x_meminfo(size_t* avail, size_t* total)
+{
+  if (avail == nullptr && total == nullptr) {
+    return x_err_set(x_err_posix, EINVAL);
+  }
+
+#if X_WINDOWS
+  MEMORYSTATUSEX status{0};
+  status.dwLength = sizeof(status);
+
+  if (!GlobalMemoryStatusEx(&status)) {
+    return x_err_set(x_err_win32);
+  }
+
+  if (avail) {
+    *avail = static_cast<size_t>(status.ullAvailPhys);
+  }
+  if (total) {
+    *total = static_cast<size_t>(status.ullTotalPhys);
+  }
+#else
+  struct sysinfo info{0};
+  if (sysinfo(&info) != 0) {
+    return x_err_set(x_err_posix);
+  }
+
+  if (avail) {
+    *avail = static_cast<size_t>(info.freeram);
+  }
+  if (total) {
+    *total = static_cast<size_t>(info.totalram);
+  }
+#endif
 
   return x_ok();
 }
