@@ -11,11 +11,11 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-04-10 12:53
-Version: v0.6.14
+Last update: 2024-04-13 15:52
+Version: v0.6.15
 ******************************************************************************/
 #ifndef X_H
-#define X_H X_VER(0, 6, 14)
+#define X_H X_VER(0, 6, 15)
 
 
 /** Table of Contents
@@ -351,7 +351,7 @@ typedef struct _x_err_
 #if X_ENABLE_CUDA
 #define x_cu_free(ptr) do { \
   if (ptr != NULL) { \
-    cudaFree(ptr); \
+    cudaFree((void*)ptr); \
     ptr = NULL; \
   } \
 } while (false)
@@ -442,7 +442,7 @@ X_INLINE x_err x_fopen(FILE** stream, const char* file, const char* mode);
 
 #define x_free(ptr) do { \
   if (ptr != NULL) { \
-    free(ptr); \
+    free((void*)ptr); \
     ptr = NULL; \
   } \
 } while (false)

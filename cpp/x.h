@@ -11,11 +11,11 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-04-09 21:40
-Version: v0.1.17
+Last update: 2024-04-12 16:18
+Version: v0.1.18
 ******************************************************************************/
 #ifndef X_H
-#define X_H X_VER(0, 1, 17)
+#define X_H X_VER(0, 1, 18)
 
 
 /** Table of Contents
@@ -292,6 +292,9 @@ template<typename T>
 X_INLINE void x_cu_free(T*& ptr);
 
 template<typename T>
+X_INLINE void x_cu_free(volatile T*& ptr);
+
+template<typename T>
 X_INLINE x_err x_cu_malloc(T*& ptr, const size_t size);
 #endif  // X_ENABLE_CUDA
 
@@ -354,6 +357,9 @@ X_INLINE x_err x_fopen(FILE** stream, const char* file, const char* mode);
 
 template<typename T>
 X_INLINE void x_free(T*& ptr);
+
+template<typename T>
+X_INLINE void x_free(volatile T*& ptr);
 
 X_INLINE const char* x_full_path(char* dst, const char* src);
 
@@ -734,6 +740,15 @@ void x_cu_free(T*& ptr)
 }
 
 template<typename T>
+void x_cu_free(volatile T*& ptr)
+{
+  if (ptr != nullptr) {
+    cudaFree(const_cast<T*>(ptr));
+    ptr = nullptr;
+  }
+}
+
+template<typename T>
 x_err x_cu_malloc(T*& ptr, const size_t size)
 {
   if (ptr != nullptr) {
@@ -892,6 +907,15 @@ void x_free(T*& ptr)
 {
   if (ptr != nullptr) {
     free(ptr);
+    ptr = nullptr;
+  }
+}
+
+template<typename T>
+void x_free(volatile T*& ptr)
+{
+  if (ptr != nullptr) {
+    free(const_cast<T*>(ptr));
     ptr = nullptr;
   }
 }
