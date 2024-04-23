@@ -1,7 +1,7 @@
 #include "x.h"
 
 
-int main()
+int main(int argc, char** argv)
 {
   const size_t m{1536};
   const size_t n{1024};

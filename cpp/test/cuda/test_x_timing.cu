@@ -3,8 +3,8 @@
 
 int main(int argc, char** argv)
 {
-  x_timing<x_api_cpu> ttl;
-  x_timing<x_api_cpu> avg;
+  x_timing<x_api_gpu> ttl;
+  x_timing<x_api_gpu> avg;
 
   ttl.tic(true);
 
