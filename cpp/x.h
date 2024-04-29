@@ -11,7 +11,7 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-04-23 16:39
+Last update: 2024-04-27 02:37
 Version: v0.7.0
 ******************************************************************************/
 #ifndef X_H
@@ -187,12 +187,12 @@ Version: v0.7.0
 #include <cerrno>
 #include <cfloat>
 #include <cmath>
-#include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
 
+#include <format>
 #include <stdexcept>
 #include <string>
 #include <system_error>
@@ -465,10 +465,10 @@ X_INLINE const char* x_timestamp(char* buf, const size_t bsz);
 #define X_LOG_MSG_LIMIT (256)
 #endif
 
-template<char level>
+template<char level, typename... Args>
 X_INLINE void _x_log_impl(
     const char* filename, const char* function, const long line, FILE* file,
-    const char* format, ...);
+    const char* format, Args&&... args);
 
 #define x_log(level, file, format, ...) do { \
   _x_log_impl<level>(__FILENAME__, __FUNCTION__, __LINE__, file, format, ##__VA_ARGS__); \
@@ -1445,10 +1445,10 @@ X_INLINE void _x_log_prefix(
 #endif
 }
 
-template<char level>
+template<char level, typename... Args>
 void _x_log_impl(
     const char* filename, const char* function, const long line,
-    FILE* file, const char* format, ...)
+    FILE* file, const char* format, Args&&... args)
 {
   char color_level[8]{0};
   char color_reset[8]{0};
@@ -1498,11 +1498,11 @@ void _x_log_impl(
   char prefix[X_LOG_PREFIX_LIMIT]{0};
   _x_log_prefix<level>(prefix, X_LOG_PREFIX_LIMIT, filename, function, line);
 
+  std::string fmsg = std::vformat(format, std::make_format_args(args...));
+
+  // NOTE: Cover the case that there are no `{}`s in `format`.
   char msg[X_LOG_MSG_LIMIT]{0};
-  va_list args;
-  va_start(args, format);
-  vsnprintf(msg, X_LOG_MSG_LIMIT, format, args);
-  va_end(args);
+  snprintf(msg, X_LOG_MSG_LIMIT, fmsg.c_str(), std::forward<Args>(args)...);
 
   if (file == nullptr || file == stdout || file == stderr) {
     fprintf(
