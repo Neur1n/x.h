@@ -3,8 +3,8 @@
 
 int main(int argc, char** argv)
 {
-  x_timing<x_api_cpu> ttl;
-  x_timing<x_api_cpu> avg;
+  x_stopwatch ttl;
+  x_stopwatch avg;
 
   ttl.tic(true);
 
@@ -14,7 +14,7 @@ int main(int argc, char** argv)
     avg.toc("ms", 5, "Average", true);
   }
 
-  ttl.toc("ms", true);
+  ttl.toc("ms", false);
   x_log('p', nullptr, "Total: %fms", ttl.elapsed());
 
   return 0;

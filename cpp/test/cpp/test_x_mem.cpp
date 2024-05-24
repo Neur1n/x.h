@@ -7,7 +7,7 @@ int main(int argc, char** argv)
 
   double* ptr{nullptr};
 
-  err = x_malloc<x_api_std>(ptr, sizeof(double));
+  err = x_malloc(&ptr, sizeof(double));
   if (err) {
     x_log('e', nullptr, "x_malloc: %s", err.msg());
     return EXIT_FAILURE;
@@ -16,9 +16,9 @@ int main(int argc, char** argv)
   *ptr = x_Pi<double>;
   x_log('i', nullptr, "%f", *ptr);
 
-  x_free<x_api_std>(ptr);
+  x_free(&ptr);
 
-  err = x_malloc(ptr, sizeof(double));
+  err = x_malloc(&ptr, sizeof(double));
   if (err) {
     x_log('e', nullptr, "x_malloc: %s", err.msg());
     return EXIT_FAILURE;
