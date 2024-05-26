@@ -11,7 +11,7 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-05-24 17:18
+Last update: 2024-05-26 11:29
 Version: v0.7.0
 ******************************************************************************/
 #ifndef X_H
@@ -2143,7 +2143,7 @@ x_swstats x_stopwatch::toc(
     return this->m_stats;
   }
 
-  this->toc(unit, echo);
+  this->toc(unit, false);
 
   if (this->m_elapsed > this->m_stats.max.val) {
     this->m_stats.max.idx = this->m_stats.cyc;
@@ -2280,7 +2280,7 @@ x_swstats x_stopwatch_cu::toc(
     return this->m_stats;
   }
 
-  this->toc(unit, echo);
+  this->toc(unit, false);
 
   if (this->m_elapsed > this->m_stats.max.val) {
     this->m_stats.max.idx = this->m_stats.cyc;

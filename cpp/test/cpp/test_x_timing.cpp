@@ -14,7 +14,7 @@ int main(int argc, char** argv)
     avg.toc("ms", 5, "Average", true);
   }
 
-  ttl.toc("ms", false);
+  ttl.toc("ms", true);
   x_log('p', nullptr, "Total: %fms", ttl.elapsed());
 
   return 0;

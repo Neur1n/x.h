@@ -1,8 +1,10 @@
 #include "x.h"
 
 
-int main()
+int main(int argc, char *argv[])
 {
+  // NOTE: Then length of the buffer may not be enough and it is intended to
+  // be truncated for testing purposes.
   char msg[32] = {0};
   size_t msz = x_count(msg);
 
