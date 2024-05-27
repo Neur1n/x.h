@@ -11,7 +11,7 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-05-26 11:29
+Last update: 2024-05-27 17:29
 Version: v0.7.0
 ******************************************************************************/
 #ifndef X_H
@@ -317,8 +317,8 @@ template<typename T>
 X_INL consteval T x_PiB(const T n);
 
 template<typename T>
-X_INL consteval
-typename std::enable_if<std::is_integral_v<T>, T>::type x_bit(const T bit);
+X_INL consteval typename std::enable_if<std::is_integral_v<T>, T>::type
+x_bit(const T bit);
 
 template<typename T, size_t N>
 X_INL consteval size_t x_count(const T (&array)[N]);
@@ -327,7 +327,7 @@ template<typename T, bool array = false>
 X_INL void x_delete(T*& ptr);
 
 X_INL double x_duration(
-    const char* unit, const struct timespec start, const struct timespec end);
+    const char* unit, const struct timespec start, const struct timespec stop);
 
 #if X_ENABLE_CUDA
 X_INL double x_duration_cu(
@@ -344,17 +344,17 @@ X_INL x_err x_fopen(FILE** stream, const char* file, const char* mode);
 X_INL const char* x_fpath(char* dst, const char* src);
 
 template<typename T>
-X_INL void x_free(T* ptr);
+X_INL void x_free(T*& ptr);
 
 template<typename T>
-X_INL void x_free(volatile T* ptr);
+X_INL void x_free(volatile T*& ptr);
 
 #if X_ENABLE_CUDA
 template<typename T>
-X_INL void x_free_cu(T* ptr);
+X_INL void x_free_cu(T*& ptr);
 
 template<typename T>
-X_INL void x_free_cu(volatile T* ptr);
+X_INL void x_free_cu(volatile T*& ptr);
 #endif
 
 X_INL long long x_fsize(const char* file);
@@ -459,11 +459,11 @@ X_INL const char* x_timestamp(char* buf, const size_t bsz);
 
 template<char level, typename... Args>
 X_INL void _x_log_impl(
-    const char* filename, const char* function, const long line, FILE* file,
+    const char* filename, const char* function, const long line, FILE* stream,
     const char* format, Args&&... args);
 
-#define x_log(level, file, format, ...) do { \
-  _x_log_impl<level>(__FILENAME__, __FUNCTION__, __LINE__, file, format, ##__VA_ARGS__); \
+#define x_log(level, stream, format, ...) do { \
+  _x_log_impl<level>(__FILENAME__, __FUNCTION__, __LINE__, stream, format, ##__VA_ARGS__); \
 } while (false)
 // DECL_x_log}}}
 
@@ -879,7 +879,7 @@ const char* x_fpath(char* dst, const char* src)
 }
 
 template<typename T>
-void x_free(T* ptr)
+void x_free(T*& ptr)
 {
   if (ptr != nullptr) {
     free(ptr);
@@ -888,14 +888,14 @@ void x_free(T* ptr)
 }
 
 template<typename T>
-void x_free(volatile T* ptr)
+void x_free(volatile T*& ptr)
 {
   x_free<T>(const_cast<T*>(ptr));
 }
 
 #if X_ENABLE_CUDA
 template<typename T>
-void x_free_cu(T* ptr)
+void x_free_cu(T*& ptr)
 {
   if (ptr != nullptr) {
     cudaFree(ptr);
@@ -904,7 +904,7 @@ void x_free_cu(T* ptr)
 }
 
 template<typename T>
-void x_free_cu(volatile T* ptr)
+void x_free_cu(volatile T*& ptr)
 {
   x_free_cu<T>(const_cast<T*>(ptr));
 }
