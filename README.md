@@ -41,7 +41,7 @@ Use the C++ implementation if you can, use the C implementation when you have to
 ## Documentation
 See:
 - C implementation: [README.md](c/README.md) (WIP)
-- C++ implementation: [README.md](cpp/README.md) (WIP)
+- C++ implementation: [doxygen-style documentation](cpp/x.h)
 
 
 ## License
