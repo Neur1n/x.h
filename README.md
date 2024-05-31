@@ -34,7 +34,7 @@
 ## Getting Started
 This project contains several versions of implementations:
 - The C implementation in the [c](c) folder, designed to ensure compatibility with C99.
-- The C++ implementation in the [cpp](cpp) folder, tailored to harness the latest C++ features.
+- The C++ implementation in the [cpp](cpp) folder, tailored to harness the latest C++ features (only if they are supported by compilers).
 
 Use the C++ implementation if you can, use the C implementation when you have to.
 

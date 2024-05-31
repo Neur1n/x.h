@@ -11,32 +11,62 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-05-27 17:29
+Last update: 2024-05-30 14:52
 Version: v0.7.0
 ******************************************************************************/
 #ifndef X_H
 #define X_H x_ver(0, 7, 0)
 
 
-/** Table of Contents
+/** @internal
+ * Table of Contents
+ *
+ * Feature Configuration
+ * Architecture Detection
+ * Compiler Detection
+ * Operating System Detection
+ * Platform Detection
+ *
  * Headers
- *                     IMPL_Compat
- * DECL_Gadget         IMPL_Gadget
- * DECL_x_log          IMPL_x_log
- * DECL_x_err          IMPL_x_err
- * DECL_x_cks          IMPL_x_cks
- * DECL_x_pkt
- * DECL_x_iov
- * DECL_x_skt          IMPL_x_skt
- * DECL_x_node         IMPL_x_node
- * DECL_x_lfque        IMPL_x_lfque
- * DECL_x_tlque        IMPL_x_tlque
- * DECL_x_stopwatch    IMPL_x_stopwatch
- * DECL_x_stopwatch_cu IMPL_x_cu_stopwatch_cu
+ *
+ * Communication
+ * Console IO
+ * Date and Time
+ * Error Handling
+ * File System
+ * Hardware
+ * Mathematics
+ * Memory Management
+ * Standard IO
+ * String
+ *
+ * IMPL_Communication
+ * IMPL_Console_IO
+ * IMPL_Date_and_Time
+ * IMPL_Error_Handling
+ * IMPL_File_System
+ * IMPL_Hardware
+ * IMPL_Mathematics
+ * IMPL_Memory_Management
+ * IMPL_Standard_IO
+ * IMPL_String
+ * @endinternal
  */
 
-#define X_EMPTINESS
+/// @brief Generate a version number.
+/// @param major The major version number, ranges in [0, 99].
+/// @param minor The minor version number, ranges in [0, 99].
+/// @param patch The patch version number, ranges in [0, 99999].
+/// @return The version number.
+/// @remark A big range of patch allow the result version number specifically
+///         work with [\_MSC\_FULL\_VER](https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170).
+#define x_ver(major, minor, patch) \
+  (((major) % 100) * 10000000 + ((minor) % 100) * 100000 + ((patch) % 100000))
 
+/******************************************************************************
+ * @name Feature Configuration
+ * @{
+ *****************************************************************************/
 #ifndef X_ENABLE_CUDA
 #define X_ENABLE_CUDA (0)
 #endif
@@ -44,18 +74,12 @@ Version: v0.7.0
 #ifndef X_ENABLE_SOCKET
 #define X_ENABLE_SOCKET (0)
 #endif
+/** @} */  // Feature Configuration
 
-//************************************************* Version Number Generator{{{
-/**
- * major: [0, 99]
- * minor: [0, 99]
- * patch: [0, 99999], to work with _MSC_FULL_VER
- */
-#define x_ver(major, minor, patch) \
-  (((major) % 100) * 10000000 + ((minor) % 100) * 100000 + ((patch) % 100000))
-// Version Number Generator}}}
-
-//*************************************************** Architecture Detection{{{
+/******************************************************************************
+ * @name Architecture Detection
+ * @{
+ *****************************************************************************/
 #if INTPTR_MAX == INT64_MAX
 #define X_32BIT (0)
 #define X_64BIT (1)
@@ -92,9 +116,12 @@ Version: v0.7.0
 #else
 #define X_X64 (0)
 #endif
-// Architecture Detection}}}
+/** @} */  // Architecture detection
 
-//******************************************************* Compiler Detection{{{
+/******************************************************************************
+ * @name Compiler Detection
+ * @{
+ *****************************************************************************/
 #if defined(__clang__)
 #define X_CLANG x_ver(__clang_major__, __clang_minor__, __clang_patchlevel__)
 #else
@@ -118,9 +145,12 @@ Version: v0.7.0
 #else
 #define X_NVCC (0)
 #endif
-// Compiler Detection}}}
+/** @} */  // Compiler detection
 
-//*********************************************** Operating System Detection{{{
+/******************************************************************************
+ * @name Operating System Detection
+ * @{
+ *****************************************************************************/
 #if defined(__CYGWIX__)
 #define X_CYGWIN x_ver(CYGWIN_VERSION_API_MAJOR, CYGWIN_VERSION_API_MINOR, 0)
 #else
@@ -147,9 +177,12 @@ Version: v0.7.0
 #else
 #define X_WINDOWS (0)
 #endif
-// Operating System Detection}}}
+/** @} */  // Operating system detection
 
-//******************************************************* Platform Detection{{{
+/******************************************************************************
+ * @name Platform Detection
+ * @{
+ *****************************************************************************/
 #if defined(__ANDROID__)
 #define X_ANDROID (1)
 #else
@@ -174,7 +207,7 @@ Version: v0.7.0
 #else
 #define X_MINGW64 (0)
 #endif
-// Platform Detection}}}
+/** @} */   // Platform detection
 
 //****************************************************************** Headers{{{
 #if X_CLANG || X_GCC
@@ -230,8 +263,12 @@ Version: v0.7.0
 #endif
 // Headers}}}
 
-//************************************************************* Env Specific{{{
-// X_EXP, X_IMP
+/******************************************************************************
+ * @name Symbol Visibility
+ * @see [Microsoft Docs](https://docs.microsoft.com/en-us/cpp/cpp/dllexport-dllimport?view=msvc-170)
+ *      and [GCC Wiki](https://gcc.gnu.org/wiki/Visibility).
+ * @{
+ *****************************************************************************/
 #if X_WINDOWS
 #define X_EXP __declspec(dllexport)
 #else
@@ -243,8 +280,216 @@ Version: v0.7.0
 #else
 #define X_IMP __attribute__ ((visibility("hidden")))
 #endif
+/** @} */  // Symbol Visibility
 
-// X_KEY
+/******************************************************************************
+ * @name Miscellaneous
+ * @{
+ *****************************************************************************/
+/// @brief Just a semantic placeholder for empty arguments.
+#define X_EMPTINESS
+
+#if X_WINDOWS
+/// @brief Get the base name from a full path. (Windows)
+#define __FILENAME__ (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
+
+/// @brief Unify the function signature macro between Windows and Linux.
+#define __PRETTY_FUNCTION__ __FUNCSIG__
+
+/// @brief Unify the path length limit macro between Windows and Linux.
+#define X_PATH_MAX _MAX_PATH
+#else
+/// @brief Get the base name from a full path. (Linux)
+#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+
+/// @brief Unify the path length limit macro between Windows and Linux.
+#define X_PATH_MAX PATH_MAX
+
+/// @brief This is set for the `stat` function on Linux.
+#ifndef _FILE_OFFSET_BITS
+#define _FILE_OFFSET_BITS (64)
+#endif
+#endif
+
+/// @brief This is provided to align with the C version of this library.
+#define X_INL inline
+/** @} */  // Miscellaneous
+
+/******************************************************************************
+ * @name Communication
+ * @brief A collection of communication utilities.
+ * @{
+ *****************************************************************************/
+/// @brief Calculate the CRC32 checksum of a data chunk.
+X_INL uint32_t x_cks_crc32(
+    const void* data, const size_t size, const uint32_t* prev);
+
+/// @brief Calculate the internet checksum of a data chunk.
+/// @see [RFC1071](https://www.rfc-editor.org/info/rfc1071)
+X_INL uint16_t x_cks_rfc1071(const void* data, const size_t size);
+
+/// @brief Calculate the XOR checksum of a data chunk.
+X_INL uint8_t x_cks_xor(const void* data, const size_t size);
+
+/// @brief The default start of frame for a packet.
+#ifndef X_PKT_SOF
+#define X_PKT_SOF (0x55AA)
+#endif
+
+/// @brief A macro to represent an infinite number of packets.
+#ifndef X_PKT_INF
+#define X_PKT_INF UINT64_MAX
+#endif
+
+/// @struct x_hdr
+/// @brief The header of a packet.
+/// @var x_hdr::sof
+///      The start of frame.
+/// @var x_hdr::ctl
+///      The control code.
+/// @var x_hdr::opt
+///      The option, just use it freely.
+/// @var x_hdr::cnt
+///      The total number of packets.
+/// @var x_hdr::idx
+///      The index of the current packet.
+/// @var x_hdr::dsz
+///      The size of the data chunk.
+/// @var x_hdr::cks
+///      The checksum of the packet, which is calculated based on the header
+///      and the data chunk.
+typedef struct _x_hdr_
+{
+  uint16_t sof{X_PKT_SOF};
+  uint16_t ctl{0};
+  uint32_t opt{0};
+  uint64_t cnt{X_PKT_INF};
+  uint64_t idx{0};
+  uint64_t dsz{0};
+  uint64_t cks{0};
+} x_hdr;
+
+/// @struct x_pkt
+/// @brief A message packet.
+/// @var x_pkt::head
+///      The header of the packet.
+/// @var x_pkt::body
+///      The data chunk of the packet.
+typedef struct _x_pkt_
+{
+  x_hdr head;
+  void* body{nullptr};
+} x_pkt;
+
+/// @struct x_iov
+/// @brief An I/O vector.
+/// @var x_iov::buf
+///      The buffer.
+/// @var x_iov::len
+///      The length of the buffer.
+typedef struct _x_iov_
+{
+  void* buf{nullptr};
+  size_t len{0};
+} x_iov;
+
+#if X_ENABLE_SOCKET
+/// @brief A class wrapping the socket operations.
+class x_skt
+{
+public:
+  /// @brief Constructor.
+  X_INL x_skt();
+
+  /// @brief Destructor.
+  X_INL ~x_skt();
+
+  /// @brief Initialize the socket.
+  /// @param type The type of the socket, `SOCK_STREAM` or `SOCK_DGRAM`.
+  /// @return An instance of @ref x_err.
+  X_INL x_err init(const int type);
+
+  /// @brief Accept a connection from a client.
+  /// @param client The client to be accepted.
+  /// @return An instance of @ref x_err.
+  X_INL x_err accept(x_skt* client);
+
+  /// @brief Query the IP address and port of the socket.
+  /// @return An instance of @ref x_err.
+  X_INL x_err addr(char* ip, uint16_t* port);
+
+  /// @brief Close the socket.
+  /// @return An instance of @ref x_err.
+  X_INL x_err close();
+
+  /// @brief Connect to a server with specified IP address and port.
+  /// @param ip The IP address of the server.
+  /// @param port The port of the server.
+  /// @return An instance of @ref x_err.
+  X_INL x_err connect(const char* ip, const uint16_t port);
+
+  /// @brief Wrapper of `getsockopt` with error handling.
+  /// @see getsockopt
+  /// @return An instance of @ref x_err.
+  X_INL x_err getopt(
+      const int lvl, const int opt, void* val, socklen_t* len);
+
+  /// @brief Listen on a specified IP address and port.
+  /// @param ip The IP address to listen on.
+  /// @param port The port to listen on.
+  /// @return An instance of @ref x_err.
+  X_INL x_err listen(const char* ip, const uint16_t port);
+
+  /// @brief Wrapper of `recv` with error handling.
+  /// @return An instance of @ref x_err.
+  /// @see recv
+  /// @remark Different from the standard `recv`, this function trys to receive
+  ///         the specified size of data before returning.
+  X_INL x_err recv(void* buf, const size_t size, const int flags);
+
+  /// @brief Vectored version of `recv`.
+  /// @return An instance of @ref x_err.
+  /// @see @ref x_skt::recv
+  X_INL x_err recvv(x_iov* iov, const size_t count, const int flags);
+
+  /// @brief Wrapper of `send` with error handling.
+  /// @return An instance of @ref x_err.
+  /// @see send
+  /// @remark Different from the standard `send`, this function trys to send
+  ///         the specified size of data before returning.
+  X_INL x_err send(const void* buf, const size_t size, const int flags);
+
+  /// @brief Vectored version of `send`.
+  /// @return An instance of @ref x_err.
+  /// @see @ref x_skt::recv
+  X_INL x_err sendv(const x_iov* iov, const size_t count, const int flags);
+
+  /// @brief Wrapper of `setsockopt` with error handling.
+  /// @see setsockopt
+  /// @return An instance of @ref x_err.
+  X_INL x_err setopt(
+      const int lvl, const int opt, const void* val, const socklen_t len);
+
+private:
+#if X_WINDOWS
+  SOCKET m_hndl{INVALID_SOCKET};
+#else
+  int m_hndl{-1};
+#endif
+  struct sockaddr m_addr{0};
+};
+#endif  // X_ENABLE_SOCKET
+/** @} */  // Communication
+
+/******************************************************************************
+ * @name Console IO
+ * @brief A collection of console IO utilities.
+ * @see [Virtual-Key Codes](https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes)
+ * @remark X_KEY_LEFT, X_KEY_UP, X_KEY_RIGHT, and X_KEY_DOWN are defined as
+ *         negative values since they are handled differently in Windows and
+ *         Linux.
+ * @{
+ *****************************************************************************/
 #define X_KEY_ESC   (0x1B)
 #define X_KEY_A     (0x41)
 #define X_KEY_B     (0x42)
@@ -263,364 +508,74 @@ Version: v0.7.0
 #define X_KEY_DOWN  (-4)
 #endif
 
-// Misc
-#if X_WINDOWS
-#define __FILENAME__ (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
-
-#define __PRETTY_FUNCTION__ __FUNCSIG__
-
-#define X_PATH_MAX _MAX_PATH
-#else
-#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-
-#define X_PATH_MAX PATH_MAX
-
-#ifndef _FILE_OFFSET_BITS
-#define _FILE_OFFSET_BITS (64)
+#if !X_WINDOWS
+/// @brief Checks the console for keyboard input. (Linux)
+/// @return Returns a non-zero value if a key is pressed, 0 otherwise.
+/// @see [_kbhit](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/kbhit?view=msvc-170)
+X_INL int _kbhit();
 #endif
-#endif
-// Env Specific}}}
 
-#define X_INL inline
+/// @brief A wrapper for Win32's `getch`, and an implementation for Linux.
+/// @return Returns the character read from the console, or 0 if no character
+///         is available.
+X_INL int x_getch();
+/** @} */  // Console IO
 
-//************************************************************** DECL_Gadget{{{
-class x_err;
-
-#define x_assert(expr, ...) do { \
-  if (!(expr)) { \
-    fprintf(stderr, "Assertion failed: %s\n", #expr); \
-    if (strlen(#__VA_ARGS__)) { \
-      fprintf(stderr, "Message: %s\n", __VA_ARGS__); \
-    } \
-    fprintf(stderr, "Position: %s:%lld: %s\n", \
-        __FILENAME__, (long long)__LINE__, __PRETTY_FUNCTION__); \
-    abort(); \
-  } \
-} while (false)
-
-template<typename T>
-static constexpr T x_Pi = static_cast<T>(3.141592653589793238462643383279502884197169399375);
-
-template<typename T>
-X_INL consteval T x_KiB(const T n);
-
-template<typename T>
-X_INL consteval T x_MiB(const T n);
-
-template<typename T>
-X_INL consteval T x_GiB(const T n);
-
-template<typename T>
-X_INL consteval T x_TiB(const T n);
-
-template<typename T>
-X_INL consteval T x_PiB(const T n);
-
-template<typename T>
-X_INL consteval typename std::enable_if<std::is_integral_v<T>, T>::type
-x_bit(const T bit);
-
-template<typename T, size_t N>
-X_INL consteval size_t x_count(const T (&array)[N]);
-
-template<typename T, bool array = false>
-X_INL void x_delete(T*& ptr);
-
+/******************************************************************************
+ * @name Date and Time
+ * @brief A collection of date and time utilities.
+ * @{
+ *****************************************************************************/
+/// @brief Calculate the duration between two time points.
+/// @param unit The unit of the duration, "h", "m", "s", "ms", "us", or "ns".
+/// @param start The start time point.
+/// @param stop The stop time point.
+/// @return The duration in the specified unit.
+/// @see @ref x_now
 X_INL double x_duration(
     const char* unit, const struct timespec start, const struct timespec stop);
 
-#if X_ENABLE_CUDA
-X_INL double x_duration_cu(
-    const char* unit, const cudaEvent_t start, const cudaEvent_t stop);
-#endif
-
-// NOTE: To align with c/x.h;
-X_INL bool x_fail(const x_err& err);
-
-X_INL bool x_fexist(const char* file);
-
-X_INL x_err x_fopen(FILE** stream, const char* file, const char* mode);
-
-X_INL const char* x_fpath(char* dst, const char* src);
-
-template<typename T>
-X_INL void x_free(T*& ptr);
-
-template<typename T>
-X_INL void x_free(volatile T*& ptr);
-
-#if X_ENABLE_CUDA
-template<typename T>
-X_INL void x_free_cu(T*& ptr);
-
-template<typename T>
-X_INL void x_free_cu(volatile T*& ptr);
-#endif
-
-X_INL long long x_fsize(const char* file);
-
-template<typename T>
-X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
-x_gcd(const T m, const T n);
-
-X_INL int x_getch();
-
-template<typename T>
-X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
-x_lcm(const T m, const T n);
-
-template<typename T>
-X_INL x_err x_malloc(T** ptr, const size_t size);
-
-#if X_ENABLE_CUDA
-template<typename T>
-X_INL x_err x_malloc_cu(T** ptr, const size_t size);
-#endif
-
-X_INL x_err x_memcpy(void* dst, const void* src, const size_t size);
-
-#if X_ENABLE_CUDA
-X_INL x_err x_memcpy_cu(void* dst, const void* src, const size_t size);
-#endif
-
-X_INL x_err x_meminfo(size_t* avail, size_t* total);
-
-#if X_ENABLE_CUDA
-X_INL x_err x_meminfo_cu(size_t* avail, size_t* total);
-#endif
-
-X_INL size_t x_ncpu();
-
-X_INL size_t x_ngpu();
-
-template<typename T>
-X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
-x_next_exp(const T base, const T src);
-
-template<typename T>
-X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
-x_next_mul(const T base, const T src);
-
+/// @brief Get the current time point.
+/// @return The current time point.
 X_INL struct timespec x_now();
 
-template<typename T>
-X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
-x_prev_exp(const T base, const T src);
-
-template<typename T>
-X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
-x_prev_mul(const T base, const T src);
-
-X_INL x_err x_split_path(
-    const char* path,
-    char* root, const size_t rsz, char* dir, const size_t dsz,
-    char* file, const size_t fsz, char* ext, const size_t esz);
-
+/// @brief Sleep for a specified amount of time.
+/// @param ms The amount of time to sleep in milliseconds.
 X_INL void x_sleep(const unsigned long ms);
 
-X_INL x_err x_strcpy(char* dst, size_t dsz, const char* src);
-
-X_INL bool x_strmty(const char* string);
-
-// NOTE: To align with c/x.h;
-X_INL bool x_succ(const x_err& err);
-
+/// @brief Get the current timestamp.
+/// @param buf The buffer to store the timestamp.
+/// @param bsz The size of the buffer.
+/// @return The current timestamp, same as `buf`.
+/// @remark This function calls `ctime_s` on Windows and `ctime_r` on Linux
+///         internally and uses their return values to fill the buffer.
+///         Therefore, the format is not customizable. A buffer with at least
+///         26 bytes is guaranteed to store the timestamp.
 X_INL const char* x_timestamp(char* buf, const size_t bsz);
-// DECL_Gadget}}}
 
-//*************************************************************** DECL_x_log{{{
-#define X_LOG_NONE   (-1)
-#define X_LOG_PLAIN   (0)
-#define X_LOG_FATAL   (1)
-#define X_LOG_ERROR   (2)
-#define X_LOG_WARNING (3)
-#define X_LOG_INFO    (4)
-#define X_LOG_DEBUG   (5)
-
-#ifndef X_LOG_LEVEL
-#ifdef NDEBUG
-#define X_LOG_LEVEL X_LOG_INFO
-#else
-#define X_LOG_LEVEL X_LOG_DEBUG
-#endif
-#endif
-
-#ifndef X_LOG_PREFIX_LIMIT
-#ifdef NDEBUG
-#define X_LOG_PREFIX_LIMIT (64)
-#else
-#define X_LOG_PREFIX_LIMIT (256)
-#endif
-#endif
-
-#ifndef X_LOG_MSG_LIMIT
-#define X_LOG_MSG_LIMIT (256)
-#endif
-
-template<char level, typename... Args>
-X_INL void _x_log_impl(
-    const char* filename, const char* function, const long line, FILE* stream,
-    const char* format, Args&&... args);
-
-#define x_log(level, stream, format, ...) do { \
-  _x_log_impl<level>(__FILENAME__, __FUNCTION__, __LINE__, stream, format, ##__VA_ARGS__); \
-} while (false)
-// DECL_x_log}}}
-
-//*************************************************************** DECL_x_err{{{
-enum
-{
-  x_err_custom = 0,
-  x_err_posix  = 1,
-  x_err_win32  = 2,
-  x_err_socket = 3,
-#if X_ENABLE_CUDA
-  x_err_cuda   = 4,
-#endif
-  x_err_max,
-#if X_WINDOWS
-  x_err_system = x_err_win32,
-#else
-  x_err_system = x_err_posix,
-#endif
-};
-
-class x_err
-{
-public:
-  X_INL explicit x_err();
-
-  X_INL explicit x_err(const int32_t cat);
-
-  X_INL explicit x_err(const int32_t cat, const int32_t val);
-
-  X_INL explicit x_err(const int32_t cat, const int32_t val, const char* msg);
-
-  X_INL ~x_err();
-
-  X_INL int32_t cat() const;
-
-  X_INL const char* msg();
-
-  X_INL x_err& set(const int32_t cat);
-
-  X_INL x_err& set(
-      const int32_t cat, const int32_t val, bool (*fail)(const int32_t) = nullptr);
-
-  X_INL x_err& set(
-      const int32_t cat, const int32_t val, const char* msg,
-      bool (*fail)(const int32_t) = nullptr);
-
-  X_INL int32_t val() const;
-
-  X_INL operator bool() const;
-
-private:
-  int32_t m_cat{x_err_posix};
-  int32_t m_val{0};
-  std::string m_msg;
-  bool (*m_fail)(const int32_t){nullptr};
-};
-// DECL_x_err}}}
-
-//*************************************************************** DECL_x_cks{{{
-X_INL uint32_t x_cks_crc32(
-    const void* data, const size_t size, const uint32_t* prev);
-
-X_INL uint16_t x_cks_rfc1071(const void* data, const size_t size);
-
-X_INL uint8_t x_cks_xor(const void* data, const size_t size);
-// DECL_x_cks}}}
-
-//*************************************************************** DECL_x_pkt{{{
-#ifndef X_PKT_SOF
-#define X_PKT_SOF (0x55AA)
-#endif
-
-#ifndef X_PKT_INF
-#define X_PKT_INF UINT64_MAX
-#endif
-
-typedef struct _x_hdr_
-{
-  uint16_t sof{X_PKT_SOF};  // start of frame
-  uint16_t ctl{0};          // control code
-  uint32_t opt{0};          // option, just use it freely
-  uint64_t cnt{X_PKT_INF};  // total count of packets
-  uint64_t idx{0};          // index of current packet
-  uint64_t dsz{0};          // size of the data chunk
-  uint64_t cks{0};          // checksum of packet
-} x_hdr;
-
-typedef struct _x_pkt_
-{
-  x_hdr head;
-  void* body{nullptr};
-} x_pkt;
-// DECL_x_pkt}}}
-
-//*************************************************************** DECL_x_iov{{{
-typedef struct _x_iov_
-{
-  void* buf{nullptr};
-  size_t len{0};
-} x_iov;
-// DECL_x_iov}}}
-
-#if X_ENABLE_SOCKET
-//*************************************************************** DECL_x_skt{{{
-class x_skt
-{
-public:
-  X_INL x_skt();
-
-  X_INL ~x_skt();
-
-  X_INL x_err init(const int type);
-
-  X_INL x_err accept(x_skt* acceptee);
-
-  X_INL x_err addr(char* ip, uint16_t* port);
-
-  X_INL x_err close();
-
-  X_INL x_err connect(const char* ip, const uint16_t port);
-
-  X_INL x_err getopt(
-      const int lvl, const int opt, void* val, socklen_t* len);
-
-  X_INL x_err listen(const char* ip, const uint16_t port);
-
-  X_INL x_err recv(void* buf, const size_t size, const int flags);
-
-  X_INL x_err recvv(x_iov* iov, const size_t count, const int flags);
-
-  X_INL x_err send(const void* buf, const size_t size, const int flags);
-
-  X_INL x_err sendv(const x_iov* iov, const size_t count, const int flags);
-
-  X_INL x_err setopt(
-      const int lvl, const int opt, const void* val, const socklen_t len);
-
-private:
-#if X_WINDOWS
-  SOCKET m_hndl{INVALID_SOCKET};
-#else
-  int m_hndl{-1};
-#endif
-  struct sockaddr m_addr{0};
-};
-// DECL_x_skt}}}
-#endif  // X_ENABLE_SOCKET
-
-//********************************************************* DECL_x_stopwatch{{{
+/// @struct x_swstats
+/// @brief A structure to store the statistics of a stopwatch.
+/// @var x_swstats::ready
+///      Whether the stopwatch is ready.
+/// @var x_swstats::cyc
+///      The number of cycles.
+/// @var x_swstats::sum
+///      The total elapsed time.
+/// @var x_swstats::avg
+///      The average elapsed time.
+/// @var x_swstats::max
+///      The frame that captures the maximum elapsed time.
+/// @var x_swstats::min
+///      The frame that captures the minimum elapsed time.
 typedef struct _x_swstats_
 {
+  /// @brief Constructor.
   _x_swstats_()
   {
     this->reset();
   }
 
+  /// @brief Reset the statistics.
   void reset()
   {
     this->ready = false;
@@ -644,21 +599,39 @@ typedef struct _x_swstats_
   } max, min;
 } x_swstats;
 
+/// @brief A stopwatch class.
 class x_stopwatch
 {
 public:
+  /// @brief Constructor.
   X_INL x_stopwatch();
 
+  /// @brief Destructor.
   X_INL ~x_stopwatch();
 
+  /// @brief Get the elapsed time.
   X_INL double elapsed() const;
 
+  /// @brief Reset the stopwatch.
   X_INL void reset();
 
+  /// @brief Start the stopwatch.
+  /// @param echo Whether to print the message.
   X_INL void tic(const bool echo = false);
 
+  /// @brief Stop the stopwatch.
+  /// @param unit The unit of the elapsed time, "h", "m", "s", "ms", "us", or
+  ///             "ns".
+  /// @param echo Whether to print the message.
   X_INL void toc(const char* unit, const bool echo = false);
 
+  /// @brief Stop the stopwatch and return the statistics.
+  /// @param unit The unit of the elapsed time, "h", "m", "s", "ms", "us", or
+  ///             "ns".
+  /// @param cycle The number of cycles.
+  /// @param title The title of the statistic message.
+  /// @param echo Whether to print the message.
+  /// @return The statistics of the stopwatch.
   X_INL x_swstats toc(
       const char* unit, const size_t cycle, const char* title = "",
       const bool echo = false);
@@ -668,10 +641,15 @@ private:
   x_swstats m_stats;
   double m_elapsed{0.0};
 };
-// DECL_x_stopwatch}}}
 
-//****************************************************** DECL_x_stopwatch_cu{{{
 #if X_ENABLE_CUDA
+/// @brief CUDA version of @ref x_duration.
+/// @see @ref x_duration
+X_INL double x_duration_cu(
+    const char* unit, const cudaEvent_t start, const cudaEvent_t stop);
+
+/// @brief CUDA version of @ref x_stopwatch.
+/// @see @ref x_stopwatch
 class x_stopwatch_cu
 {
 public:
@@ -698,1037 +676,444 @@ private:
   x_swstats m_stats;
 };
 #endif
-// DECL_x_stopwatch_cu}}}
+/** @} */  // Date and Time
 
-//************************************************************** IMPL_Compat{{{
-#if !X_WINDOWS
-X_INL int _kbhit()
+/******************************************************************************
+ * @name Error Handling
+ * @brief A collection of error handling utilities.
+ * @{
+ *****************************************************************************/
+class x_err;
+
+/// @brief Assertion with optional message.
+/// @param expr The expression to assert.
+/// @param ... The optional message to print.
+/// @attention The optional message must be a string literal.
+#define x_assert(expr, ...) do { \
+  if (!(expr)) { \
+    fprintf(stderr, "Assertion failed: %s\n", #expr); \
+    if (strlen(#__VA_ARGS__)) { \
+      fprintf(stderr, "Message: %s\n", __VA_ARGS__); \
+    } \
+    fprintf(stderr, "Position: %s:%lld: %s\n", \
+        __FILENAME__, (long long)__LINE__, __PRETTY_FUNCTION__); \
+    abort(); \
+  } \
+} while (false)
+
+/// @brief Check if an instance of @ref x_err indicates a failure.
+/// @param err The instance of @ref x_err.
+/// @return `true` if the instance is indicating a failure, `false` otherwise.
+/// @see @ref x_succ
+/// @remark Using this function is not necessary since there is a boolean
+///         operator defined for @ref x_err. This is provided to align with the
+///         C version of this library.
+X_INL bool x_fail(const x_err& err);
+
+/// @brief The counterpart of x_fail.
+/// @see @ref x_fail
+X_INL bool x_succ(const x_err& err);
+
+/// @var x_err_custom
+///      Custom error that is set by the user.
+/// @var x_err_posix
+///      POSIX error that is set by `errno`.
+/// @var x_err_win32
+///      Windows error that may be returned by `GetLastError`.
+/// @var x_err_socket
+///      Socket error that is set by `errno` on Linux or returned by
+///      `WSAGetLastError` on Windows.
+/// @var x_err_cuda
+///      CUDA error that is set by the CUDA runtime API.
+/// @attention The x_err_cuda is only available when `X_ENABLE_CUDA` is set to
+///            a truthy value.
+/// @var x_err_max
+///      The maximum number of error categories.
+/// @var x_err_system
+///      The system error, which is either x_err_posix on Linux or
+///      or x_err_win32 on Windows.
+enum
 {
-  static bool initialized{false};
-  if (!initialized) {
-    struct termios settings{0};
-    tcgetattr(STDIN_FILENO, &settings);
-    settings.c_lflag &= ~ICANON;
-    tcsetattr(STDIN_FILENO, TCSANOW, &settings);
-    setbuf(stdin, nullptr);
-    initialized = true;
-  }
-
-  int byte{0};
-  ioctl(STDIN_FILENO, FIONREAD, &bytes);
-  return bytes;
-}
+  x_err_custom = 0,
+  x_err_posix  = 1,
+  x_err_win32  = 2,
+  x_err_socket = 3,
+#if X_ENABLE_CUDA
+  x_err_cuda   = 4,
 #endif
-// IMPL_Compat}}}
+  x_err_max,
+#if X_WINDOWS
+  x_err_system = x_err_win32,
+#else
+  x_err_system = x_err_posix,
+#endif
+};
 
-//************************************************************** IMPL_Gadget{{{
-template<typename T>
-consteval T x_KiB(const T n)
+/// @brief An error class that encapsulates the error category, error value,
+///        and corresponding error message.
+/// @remark The error handling class `std::error_code` is extensible but not
+///         user-friendly in my opinion. This class is designed to work with
+///         different error categories with less effort.
+class x_err
 {
-  return n * static_cast<T>(1024);
-}
+public:
+  /// @brief Default constructor, which sets the error category to x_err_posix
+  ///        and the error value to 0.
+  X_INL explicit x_err();
 
+  /// @brief Constructor with a error category. Corresponding error code and
+  ///        message will be queried based on the error category. For example,
+  ///        if the error category is x_err_posix, the error value will be set
+  ///        to `errno` and the error message will be set to `strerror(errno)`.
+  /// @attention Using x_err_custom here is not supported since the sources of
+  ///            error value and message are unknown.
+  X_INL explicit x_err(const int32_t cat);
+
+  /// @brief Constructor with an error category, an error value, and an
+  ///        optional failure predicate. The failure predicate is used to
+  ///        determine if the error value is a failure or not. The error
+  ///        message will be queried based on the error category and the error
+  ///        value. For example, if the error category is x_err_posix and the
+  ///        error value is `EINVAL`, the error message will be set to
+  ///        `strerror(EINVAL)`.
+  /// @note If the error category is x_err_custom, the error message will be
+  ///       set to "Custom error X" where X is the error value `val`.
+  /// @attention If the error category is x_err_custom, the failure predicate
+  ///            is mandatory.
+  X_INL explicit x_err(
+      const int32_t cat, const int32_t val,
+      bool (*fail)(const int32_t) = nullptr);
+
+  /// @brief Constructor with an error category, an error value, and a custom
+  ///        error message.
+  /// @see @ref x_err::x_err(const int32_t, const int32_t, bool (*)(const int32_t))
+  ///      for the usage of the failure predicate.
+  X_INL explicit x_err(
+      const int32_t cat, const int32_t val, const char* msg,
+      bool (*fail)(const int32_t) = nullptr);
+
+  /// @brief Destructor.
+  X_INL ~x_err();
+
+  /// @brief Get the error category.
+  X_INL int32_t cat() const;
+
+  /// @brief Get the error message.
+  X_INL const char* msg();
+
+  /// @brief This function work as same as @ref x_err::x_err(const int32_t).
+  X_INL x_err& set(const int32_t cat);
+
+  /// @brief This function work as same as
+  ///        @ref x_err::x_err(const int32_t, const int32_t, bool (*)(const int32_t) = nullptr).
+  X_INL x_err& set(
+      const int32_t cat, const int32_t val,
+      bool (*fail)(const int32_t) = nullptr);
+
+  /// @brief This function work as same as
+  ///        @ref x_err::x_err(const int32_t, const int32_t, const char*, bool (*)(const int32_t) = nullptr).
+  X_INL x_err& set(
+      const int32_t cat, const int32_t val, const char* msg,
+      bool (*fail)(const int32_t) = nullptr);
+
+  /// @brief Get the error value.
+  X_INL int32_t val() const;
+
+  /// @brief A boolean operator to check if the error value is a failure. It
+  ///        calls the failure predicate if it is set.
+  X_INL operator bool() const;
+
+private:
+  int32_t m_cat{x_err_posix};
+  int32_t m_val{0};
+  std::string m_msg;
+  bool (*m_fail)(const int32_t){nullptr};
+};
+/** @} */  // Error Handling
+
+/******************************************************************************
+ * @name File System
+ * @brief A collection of file system utilities.
+ * @{
+ *****************************************************************************/
+/// @brief Query if a file or directory exists.
+/// @param file The file or directory to query.
+/// @return `true` if the file or directory exists, `false` otherwise.
+X_INL bool x_fexist(const char* file);
+
+/// @brief Open a file stream with error handling.
+/// @param stream The file stream to open.
+/// @param file The file to open.
+/// @param mode The mode to open the file.
+/// @return An instance of @ref x_err.
+/// @remark A wrapper of `fopen` with error handling, as well as for `fopen_s`
+///         on Windows to avoid the warning C4996.
+X_INL x_err x_fopen(FILE** stream, const char* file, const char* mode);
+
+/// @brief Get the full path of a file or directory.
+/// @param dst The destination buffer to store the full path.
+/// @param src The source file or directory.
+/// @return The full path of the file or directory. Same as `dst`.
+X_INL const char* x_fpath(char* dst, const char* src);
+
+/// @brief Get the size of a file.
+/// @param file The file to query.
+/// @return The size of the file. If an error occurs, the return value is -1.
+X_INL long long x_fsize(const char* file);
+
+/// @brief Split a path into root, directory, file, and extension.
+/// @param path The path to split.
+/// @param root The buffer to store the root.
+/// @param rsz The size of the root buffer.
+/// @param dir The buffer to store the directory.
+/// @param dsz The size of the directory buffer.
+/// @param file The buffer to store the base name.
+/// @param fsz The size of the file buffer.
+/// @param ext The buffer to store the extension.
+/// @param esz The size of the extension buffer.
+X_INL x_err x_split_path(
+    const char* path,
+    char* root, const size_t rsz, char* dir, const size_t dsz,
+    char* file, const size_t fsz, char* ext, const size_t esz);
+/** @} */  // File System
+
+/******************************************************************************
+ * @name Hardware
+ * @brief A collection of memory hardware utilities.
+ * @{
+ *****************************************************************************/
+/// @brief Get the number of CPU cores.
+X_INL size_t x_ncpu();
+
+/// @brief Get the number of GPU devices.
+/// @remark Currently, this function only works with NVIDIA GPUs. If
+///         `X_ENABLE_CUDA` is set to a falsy value, this function will always
+///         return 0.
+X_INL size_t x_ngpu();
+/** @} */  // Hardware
+
+/******************************************************************************
+ * @name Mathematics
+ * @brief A collection of mathematical utilities.
+ * @{
+ *****************************************************************************/
+/// @brief Constant PI of user-defined type.
+/// @var x_Pi
+/// @param T The user-defined type.
+/// @return The constant PI.
 template<typename T>
-consteval T x_MiB(const T n)
-{
-  return n * static_cast<T>(1048576);
-}
+static constexpr T x_Pi = static_cast<T>(3.141592653589793238462643383279502884197169399375);
 
+/// @brief Kibibyte constant generator, i.e., 1 KiB = 1024 bytes.
+/// @param n The scale factor.
+/// @attention The scale factor must be known at compile time.
 template<typename T>
-consteval T x_GiB(const T n)
-{
-  return n * static_cast<T>(1073741824);
-}
-
+X_INL consteval T x_KiB(const T n);
+/// @brief Mebibyte constant generator, i.e., 1 MiB = 1048576 bytes.
+/// @param n The scale factor.
+/// @attention The scale factor must be known at compile time.
 template<typename T>
-consteval T x_TiB(const T n)
-{
-  return n * static_cast<T>(1099511627776);
-}
+X_INL consteval T x_MiB(const T n);
 
+/// @brief Gibibyte constant generator, i.e., 1 GiB = 1073741824 bytes.
+/// @param n The scale factor.
+/// @attention The scale factor must be known at compile time.
 template<typename T>
-consteval T x_PiB(const T n)
-{
-  return n * static_cast<T>(1125899906842620);
-}
+X_INL consteval T x_GiB(const T n);
 
+/// @brief Tebibyte constant generator, i.e., 1 TiB = 1099511627776 bytes.
+/// @param n The scale factor.
+/// @attention The scale factor must be known at compile time.
 template<typename T>
-consteval typename std::enable_if<std::is_integral_v<T>, T>::type
-x_bit(const T bit)
-{
-  return static_cast<T>(1) << bit;
-}
+X_INL consteval T x_TiB(const T n);
 
+/// @brief Pebibyte constant generator, i.e., 1 PiB = 1125899906842620 bytes.
+/// @param n The scale factor.
+/// @attention The scale factor must be known at compile time.
+template<typename T>
+X_INL consteval T x_PiB(const T n);
+
+/// @brief A macro used to generate an integer with only the n-th bit set to 1.
+///        This is useful when one needs enumerations like `0b0001`, `0b0010`,
+///        `0b0100` to perform the `&`, `|`, `~` operations.
+/// @param n The n-th bit.
+/// @see C++'s `std::bitset` for a more versatile solution.
+/// @attention The n-th bit must be known at compile time.
+template<typename T>
+X_INL consteval typename std::enable_if<std::is_integral_v<T>, T>::type
+x_bit(const T n);
+
+/// @brief Calculate the greatest common divisor of two integers.
+/// @param m The first integer.
+/// @param n The second integer.
+/// @return The greatest common divisor.
+/// @attention This function is only available for integral types.
+template<typename T>
+X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
+x_gcd(const T m, const T n);
+
+/// @brief Calculate the least common multiple of two integers.
+/// @param m The first integer.
+/// @param n The second integer.
+/// @return The least common multiple.
+/// @attention This function is only available for integral types.
+template<typename T>
+X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
+x_lcm(const T m, const T n);
+
+/// @brief Calculate the next exponent of a base.
+/// @param base The base.
+/// @param src The source number.
+/// @return The next exponent of the base.
+/// @attention This function is only available for integral types.
+template<typename T>
+X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
+x_next_exp(const T base, const T src);
+
+/// @brief Calculate the next multiple of a base.
+/// @param base The base.
+/// @param src The source number.
+/// @return The next multiple of the base.
+/// @attention This function is only available for integral types.
+template<typename T>
+X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
+x_next_mul(const T base, const T src);
+
+/// @brief Calculate the previous exponent of a base.
+/// @param base The base.
+/// @param src The source number.
+/// @return The previous exponent of the base.
+/// @attention This function is only available for integral types.
+template<typename T>
+X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
+x_prev_exp(const T base, const T src);
+
+/// @brief Calculate the previous multiple of a base.
+/// @param base The base.
+/// @param src The source number.
+/// @return The previous multiple of the base.
+/// @attention This function is only available for integral types.
+template<typename T>
+X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
+x_prev_mul(const T base, const T src);
+/** @} */  // Mathematics
+
+/******************************************************************************
+ * @name Memory Management
+ * @brief A collection of memory management utilities.
+ * @{
+ *****************************************************************************/
+/// @brief Get number of items in an array.
+/// @param array The array.
+/// @attention This function only works with static arrays.
 template<typename T, size_t N>
-consteval size_t x_count(const T (&array)[N])
-{
-  return N;
-}
+X_INL constexpr size_t x_count(const T (&array)[N]);
 
-template<typename T, bool array>
-void x_delete(T*& ptr)
-{
-  if (ptr != nullptr) {
-    if constexpr (array) {
-      delete[] ptr;
-    } else {
-      delete ptr;
-    }
-    ptr = nullptr;
-  }
-}
+/// @brief Delete a pointer, allocated by `new` or `new[]`, and set it to
+///        `nullptr`.
+/// @tparam array Whether the pointer is allocated by `new[]`.
+/// @param ptr The pointer to delete.
+template<typename T, bool array = false>
+X_INL void x_delete(T*& ptr);
 
-double x_duration(
-    const char* unit, const struct timespec start, const struct timespec stop)
-{
-  double diff{static_cast<double>(
-      (stop.tv_sec - start.tv_sec) * 1000000000 + stop.tv_nsec - start.tv_nsec)};
-
-  if (strcmp(unit, "h") == 0) {
-    return diff / 3600000000000.0;
-  } else if (strcmp(unit, "m") == 0) {
-    return diff / 60000000000.0;
-  } else if (strcmp(unit, "s") == 0) {
-    return diff / 1000000000.0;
-  } else if (strcmp(unit, "ms") == 0) {
-    return diff / 1000000.0;
-  } else if (strcmp(unit, "us") == 0) {
-    return diff / 1000.0;
-  } else { // if (strcmp(unit, "ns") == 0)
-    return diff;
-  }
-}
-
-#if X_ENABLE_CUDA
-double x_duration_cu(
-    const char* unit, const cudaEvent_t start, const cudaEvent_t stop)
-{
-  cudaError_t cerr = cudaEventSynchronize(stop);
-  if (cerr != cudaSuccess) {
-    fprintf(stderr, "cudaEventSynchronize: %s\n", cudaGetErrorString(cerr));
-    return -1.0;
-  }
-
-  float ms{0.0f};
-  cerr = cudaEventElapsedTime(&ms, start, stop);
-  if (cerr != cudaSuccess) {
-    fprintf(stderr, "cudaEventElapsedTime: %s\n", cudaGetErrorString(cerr));
-    return -1.0;
-  }
-
-  if (strcmp(unit, "h") == 0) {
-    return static_cast<double>(ms) / 3600000.0;
-  } else if (strcmp(unit, "m") == 0) {
-    return static_cast<double>(ms) / 60000.0;
-  } else if (strcmp(unit, "s") == 0) {
-    return static_cast<double>(ms) / 1000.0;
-  } else if (strcmp(unit, "ms") == 0) {
-    return static_cast<double>(ms);
-  } else if (strcmp(unit, "us") == 0) {
-    return static_cast<double>(ms) * 1000.0;
-  } else { // if (strcmp(unit, "ns") == 0)
-    return static_cast<double>(ms) * 1000000;
-  }
-}
-#endif
-
-bool x_fail(const x_err& err)
-{
-  return err;
-}
-
-bool x_fexist(const char* file)
-{
-  int ierr{0};
-
-#if X_WINDOWS
-  struct _stat64 s{0};
-  ierr = _stat64(file, &s);
-#else
-  struct stat s{0};
-  ierr = stat(file, &s);
-#endif
-
-  return ierr == 0;
-}
-
-x_err x_fopen(FILE** stream, const char* file, const char* mode)
-{
-#if X_WINDOWS
-  errno_t ierr = fopen_s(stream, file, mode);
-  if (ierr != 0) {
-    return x_err(x_err_posix, ierr);
-  }
-#else
-  *stream = fopen(file, mode);
-  if (*stream == nullptr) {
-    return x_err(x_err_posix);
-  }
-#endif
-
-  return x_err();
-}
-
-const char* x_fpath(char* dst, const char* src)
-{
-#if X_WINDOWS
-  return dst != nullptr ? _fullpath(dst, src, X_PATH_MAX) : nullptr;
-#else
-  return dst != nullptr ? realpath(src, dst) : nullptr;
-#endif
-}
+/// @brief Free a memory block allocated on the heap and set it to `nullptr`.
+/// @param ptr The memory block to free.
+/// @remark If the pointer is `nullptr`, this function does nothing.
+template<typename T>
+X_INL void x_free(T*& ptr);
 
 template<typename T>
-void x_free(T*& ptr)
-{
-  if (ptr != nullptr) {
-    free(ptr);
-    ptr = nullptr;
-  }
-}
+X_INL void x_free(volatile T*& ptr);
 
 template<typename T>
-void x_free(volatile T*& ptr)
-{
-  x_free<T>(const_cast<T*>(ptr));
-}
+X_INL x_err x_malloc(T** ptr, const size_t size);
+
+X_INL x_err x_memcpy(void* dst, const void* src, const size_t size);
+
+X_INL x_err x_meminfo(size_t* avail, size_t* total);
 
 #if X_ENABLE_CUDA
 template<typename T>
-void x_free_cu(T*& ptr)
-{
-  if (ptr != nullptr) {
-    cudaFree(ptr);
-    ptr = nullptr;
-  }
-}
+X_INL void x_free_cu(T*& ptr);
 
 template<typename T>
-void x_free_cu(volatile T*& ptr)
-{
-  x_free_cu<T>(const_cast<T*>(ptr));
-}
-#endif
-
-long long x_fsize(const char* file)
-{
-  int ierr{0};
-
-#if X_WINDOWS
-  struct _stat64 s{0};
-  ierr = _stat64(file, &s);
-#else
-  struct stat s{0};
-  ierr = stat(file, &s);
-#endif
-
-  return ierr == 0 ? s.st_size : -1;
-}
+X_INL void x_free_cu(volatile T*& ptr);
 
 template<typename T>
-constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
-x_gcd(const T m, const T n)
-{
-  return n == 0 ? m : x_gcd(n, m % n);
-}
+X_INL x_err x_malloc_cu(T** ptr, const size_t size);
 
-int x_getch()
-{
-#if X_WINDOWS
-  return _kbhit() ? toupper(_getch()) : 0;
-#else
-  int key{0};
+X_INL x_err x_memcpy_cu(void* dst, const void* src, const size_t size);
 
-  int bytes_waiting{_kbhit()};
-  if (bytes_waiting <= 0) {
-    return 0;
-  }
-
-  struct termios old_settings{0};
-  struct termios new_settings{0};
-  union {
-    int in;
-    char ch[4];
-  } buf{0};
-  int ierr{0};
-  ssize_t bytes_read{0};
-
-  ierr = tcgetattr(0, &old_settings);
-  if (ierr != 0) {
-    return 0;
-  }
-
-  new_settings = old_settings;
-  new_settings.c_lflag &= ~ICANON;
-  new_settings.c_lflag &= ~ECHO;
-
-  ierr = tcsetattr(0, TCSANOW, &new_settings);
-  if (ierr != 0) {
-    tcsetattr(0, TCSANOW, &old_settings);
-    return 0;
-  }
-
-  bytes_read = read(STDIN_FILENO, &buf.in, bytes_waiting);
-  if (bytes_read <= 0) {
-    tcsetattr(0, TCSANOW, &old_settings);
-    return 0;
-  } else if (bytes_read >= 2) {
-    if (buf.ch[0] == 0x1B && buf.ch[1] == 0x5B) {
-      if (bytes_read == 2) {
-        key = X_KEY_ESC;
-      } else {
-        switch (buf.ch[2]) {
-          case X_KEY_A:
-            key = X_KEY_UP;
-            break;
-          case X_KEY_B:
-            key = X_KEY_DOWN;
-            break;
-          case X_KEY_C:
-            key = X_KEY_RIGHT;
-            break;
-          case X_KEY_D:
-            key = X_KEY_LEFT;
-            break;
-        }
-      }
-    } else {
-      key = buf.ch[0];
-    }
-  } else {
-    key = buf.ch[0];
-  }
-
-  tcsetattr(0, TCSADRAIN, &old_settings);
-
-  return isalpha(key) ? toupper(key) : key;
+X_INL x_err x_meminfo_cu(size_t* avail, size_t* total);
 #endif
-}
-
-template<typename T>
-constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
-x_lcm(const T m, const T n)
-{
-  if (m == 0 || n == 0) {
-    return 0;
-  }
-
-  return m / x_gcd(m, n) * n;
-}
-
-template<typename T>
-x_err x_malloc(T** ptr, const size_t size)
-{
-  if (*ptr != nullptr) {
-    return x_err(x_err_posix, EINVAL);
-  }
-
-  *ptr = static_cast<T*>(malloc(size));
-  if (*ptr == nullptr) {
-    return x_err(x_err_posix);
-  }
-
-  return x_err();
-}
-
-#if X_ENABLE_CUDA
-template<typename T>
-X_INL x_err x_malloc_cu(T** ptr, const size_t size)
-{
-  if (*ptr != nullptr) {
-    return x_err(x_err_posix, EINVAL);
-  }
-
-  cudaError_t cerr = cudaMalloc(ptr, size);
-  if (cerr != cudaSuccess) {
-    return x_err(x_err_cuda, cerr);
-  }
-
-  return x_err();
-}
-#endif
-
-x_err x_memcpy(void* dst, const void* src, const size_t size)
-{
-  if (dst == nullptr || src == nullptr) {
-    return x_err(x_err_posix, EINVAL);
-  }
-
-  if (size != 0) {
-    memcpy(dst, src, size);
-  }
-
-  return x_err();
-}
-
-#if X_ENABLE_CUDA
-x_err x_memcpy_cu(void* dst, const void* src, const size_t size)
-{
-  if (dst == nullptr || src == nullptr) {
-    return x_err(x_err_posix, EINVAL);
-  }
-
-  if (size != 0) {
-    cudaError_t cerr = cudaMemcpy(dst, src, size, cudaMemcpyDefault);
-    if (cerr != cudaSuccess) {
-      return x_err(x_err_cuda, cerr);
-    }
-  }
-
-  return x_err();
-}
-#endif
-
-x_err x_meminfo(size_t* avail, size_t* total)
-{
-  if (avail == nullptr && total == nullptr) {
-    return x_err(x_err_posix, EINVAL);
-  }
-
-#if X_WINDOWS
-  MEMORYSTATUSEX status{0};
-  status.dwLength = sizeof(status);
-
-  if (!GlobalMemoryStatusEx(&status)) {
-    return x_err(x_err_win32);
-  }
-
-  if (avail != nullptr) {
-    *avail = static_cast<size_t>(status.ullAvailPhys);
-  }
-  if (total != nullptr) {
-    *total = static_cast<size_t>(status.ullTotalPhys);
-  }
-#else
-  struct sysinfo info{0};
-  if (sysinfo(&info) != 0) {
-    return x_err(x_err_posix);
-  }
-
-  if (avail != nullptr) {
-    *avail = static_cast<size_t>(info.freeram);
-  }
-  if (total != nullptr) {
-    *total = static_cast<size_t>(info.totalram);
-  }
-#endif
-
-  return x_err();
-}
-
-#if X_ENABLE_CUDA
-x_err x_meminfo_cu(size_t* avail, size_t* total)
-{
-  if (avail == nullptr && total == nullptr) {
-    return x_err(x_err_posix, EINVAL);
-  }
-
-  cudaError_t cerr = cudaMemGetInfo(avail, total);
-  if (cerr != cudaSuccess) {
-    return x_err(x_err_cuda, cerr);
-  }
-
-  return x_err();
-}
-#endif
-
-size_t x_ncpu()
-{
-#if X_WINDOWS
-  SYSTEM_INFO info{0};
-  GetSystemInfo(&info);
-  return static_cast<size_t>(info.dwNumberOfProcessors);
-#else
-  return static_cast<size_t>(sysconf(_SC_NPROCESSORS_ONLN));
-#endif
-}
-
-size_t x_ngpu()
-{
-#if X_ENABLE_CUDA
-  int count{0};
-  cudaError_t cerr = cudaGetDeviceCount(&count);
-  if (cerr != cudaSuccess) {
-    fprintf(stderr, "cudaGetDeviceCount: %s\n", cudaGetErrorString(cerr));
-    return 0;
-  }
-
-  return static_cast<size_t>(count);
-#else
-  return 0;
-#endif
-}
-
-template<typename T>
-constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
-x_next_exp(const T base, const T src)
-{
-  if (src == 0) {
-    return 1;
-  }
-
-  if (base == 2) {
-    if ((src & (src - 1)) == 0) {
-      return src;
-    }
-
-    T s{src};
-    T count{0};
-    while (s != 0) {
-      s >>= 1;
-      count += 1;
-    }
-
-    return 1 << count;
-  } else {
-    double exp =
-      std::log(static_cast<double>(src)) / std::log(static_cast<double>(base));
-
-    if (exp == std::round(exp)) {
-      return src;
-    }
-
-    return std::pow(base, static_cast<size_t>(std::ceil(exp)));
-  }
-}
-
-template<typename T>
-constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
-x_next_mul(const T base, const T src)
-{
-  return (src / base + 1) * base;
-}
-
-struct timespec x_now()
-{
-  struct timespec ts{0};
-
-#if X_WINDOWS || __STDC_VERSION__ >= 201112L
-  timespec_get(&ts, TIME_UTC);
-#else
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-#endif
-
-  return ts;
-}
-
-template<typename T>
-constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
-x_prev_exp(const T base, const T src)
-{
-  if (src == 0) {
-    return 0;
-  }
-
-  if (base == 2) {
-    if ((src & (src - 1)) == 0) {
-      return src;
-    }
-
-    T s{src};
-    T count{0};
-    while (s != 0) {
-      s >>= 1;
-      count += 1;
-    }
-
-    return 1 << (count - 1);
-  } else {
-    double exp =
-      std::log(static_cast<double>(src)) / std::log(static_cast<double>(base));
-
-    if (exp == std::round(exp)) {
-      return src;
-    }
-
-    return std::pow(base, static_cast<size_t>(std::floor(exp)));
-  }
-}
-
-template<typename T>
-constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
-x_prev_mul(const T base, const T src)
-{
-  return (src / base) * base;
-}
-
-x_err x_split_path(
-    const char *path,
-    char *root, const size_t rsz, char *dir, const size_t dsz,
-    char *file, const size_t fsz, char *ext, const size_t esz)
-{
-  char full[X_PATH_MAX]{0};
-  x_fpath(full, path);
-
-  if (!x_fexist(full)) {
-    return x_err(x_err_posix, ENOENT);
-  }
-
-#if X_WINDOWS
-  return x_err(
-      x_err_posix, _splitpath_s(full, root, rsz, dir, dsz, file, fsz, ext, esz));
-#else
-  if (root == nullptr || rsz == 0 || dir == nullptr || dsz == 0
-      || file == nullptr || fsz == 0 || ext == nullptr || esz == 0) {
-    return x_err(x_err_posix, EINVAL);
-  }
-
-  if (root != nullptr) { root[0] = '\0'; }
-  if (dir != nullptr) { dir[0] = '\0'; }
-  if (file != nullptr) { file[0] = '\0'; }
-  if (ext != nullptr) { ext[0] = '\0'; }
-
-  size_t psz{strlen(full)};
-  size_t sz{0};
-  char* begin{nullptr};
-  char* end{nullptr};
-
-  // root
-  begin = strchr((char*)path, '/');
-  if (begin == nullptr) {
-    return x_err(x_err_posix, ENOENT);
-  }
-
-  end = strchr(begin + 1, '/');
-  if (end == nullptr) {
-    end = full + psz;
-  }
-
-  if (root != nullptr) {
-    sz = end - begin;
-    if (sz >= rsz) {
-      return x_err(x_err_posix, ENOBUFS);
-    }
-
-    memcpy(root, begin, sz);
-    root[sz] = '\0';
-
-    if (end == nullptr) {
-      return err;
-    }
-  }
-
-  // dir
-  begin = strchr(end, '/');
-  if (begin == nullptr) {
-    return err;
-  }
-
-  end = strrchr((char*)path, '/');
-  if (end <= begin) {
-    return err;
-  }
-  if (end == nullptr) {
-    end = full + psz;
-  }
-
-  if (dir != nullptr) {
-    sz = end - begin;
-    if (sz >= dsz) {
-      return x_err(x_err_posix, ENOBUFS);
-    }
-
-    memcpy(dir, begin, sz);
-    dir[sz] = '\0';
-
-    if (end == nullptr) {
-      return err;
-    }
-  }
-
-  // file
-  begin = end + 1;
-  if ((begin - full) >= 0) {
-    return err;
-  }
-
-  end = strrchr((char*)path, '.');
-  if (end <= begin) {
-    return err;
-  }
-  if (end == nullptr) {
-    end = full + psz;
-  }
-
-  if (file != nullptr) {
-    sz = end - begin;
-    if (sz >= fsz) {
-      return x_err(x_err_posix, ENOBUFS);
-    }
-
-    memcpy(file, begin, sz);
-    file[sz] = '\0';
-  }
-
-  // ext
-  if (ext != nullptr) {
-    begin = end;
-    end = full + psz;
-    if (end <= begin) {
-      return err;
-    }
-
-    sz = end - begin;
-    memcpy(ext, begin, sz);
-    ext[sz] = '\0';
-  }
-
-  return err;
-#endif
-}
-
-void x_sleep(const unsigned long ms)
-{
-#if X_WINDOWS
-  Sleep(ms);
-#else
-  struct timespec req{0};
-  struct timespec rem{0};
-
-  req.tv_sec = ms / 1000;
-  req.tv_nsec = static_cast<long>((ms % 1000) * 1000000);
-
-  if (nanosleep(&req, &rem) == EINTR) {
-    nanosleep(&rem, nullptr);
-  }
-#endif
-}
-
-x_err x_strcpy(char* dst, size_t dsz, const char* src)
-{
-  if (dst == nullptr || dsz == 0) {
-    return x_err(x_err_posix, EINVAL);
-  }
-
-  size_t cpy_sz{dsz - 1};
-  size_t src_sz{strlen(src)};
-
-  if (src_sz > 0) {
-    cpy_sz = cpy_sz < src_sz ? cpy_sz : src_sz;
-
-    x_err err = x_memcpy(dst, src, cpy_sz);
-    if (err) {
-      return err;
-    }
-  }
-
-  dst[cpy_sz] = '\0';
-
-  return x_err();
-}
-
-bool x_strmty(const char* string)
-{
-  return string == nullptr || string[0] == '\0';
-}
-
-bool x_succ(const x_err& err)
-{
-  return !err;
-}
-
-const char* x_timestamp(char* buf, const size_t bsz)
-{
-  if (buf == nullptr) {
-    return "";
-  }
-
-  time_t now{time(nullptr)};
-
-#if X_WINDOWS
-  if (ctime_s(buf, bsz, &now) != 0) {
-    return "";
-  }
-#else
-  ctime_r(&now, buf);
-#endif
-
-  buf[strlen(buf) - 1] = '\0';
-
-  return buf;
-}
-// IMPL_Gadget}}}
-
-//*************************************************************** IMPL_x_log{{{
-#define _X_COLOR_BLACK   "\033[90m"
-#define _X_COLOR_RED     "\033[91m"
-#define _X_COLOR_GREEN   "\033[92m"
-#define _X_COLOR_YELLOW  "\033[93m"
-#define _X_COLOR_BLUE    "\033[94m"
-#define _X_COLOR_MAGENTA "\033[95m"
-#define _X_COLOR_CYAN    "\033[96m"
-#define _X_COLOR_WHITE   "\033[97m"
-#define _X_COLOR_RESET   "\033[0m"
-
-#define _X_LOG_COLOR_P _X_COLOR_WHITE
-#define _X_LOG_COLOR_F _X_COLOR_MAGENTA
-#define _X_LOG_COLOR_E _X_COLOR_RED
-#define _X_LOG_COLOR_W _X_COLOR_YELLOW
-#define _X_LOG_COLOR_I _X_COLOR_GREEN
-#define _X_LOG_COLOR_D _X_COLOR_CYAN
-
-template<char level>
-X_INL void _x_log_prefix(
-    char* buf, size_t bsz,
-    const char* filename, const char* function, const long line)
-{
-  char timestamp[26]{0};
-
+/** @} */  // Memory Management
+
+/******************************************************************************
+ * @name Standard IO
+ * @brief A collection of standard IO utilities.
+ * @{
+ *****************************************************************************/
+#define X_LOG_NONE   (-1)
+#define X_LOG_PLAIN   (0)
+#define X_LOG_FATAL   (1)
+#define X_LOG_ERROR   (2)
+#define X_LOG_WARNING (3)
+#define X_LOG_INFO    (4)
+#define X_LOG_DEBUG   (5)
+
+/// @brief The highest log level to print.
+#ifndef X_LOG_LEVEL
 #ifdef NDEBUG
-  snprintf(buf, bsz, "[%c %s] ", toupper(level), x_timestamp(timestamp, 26));
+#define X_LOG_LEVEL X_LOG_INFO
 #else
-  snprintf(
-      buf, bsz, "[%c %s | %s - %s - %ld] ",
-      toupper(level), x_timestamp(timestamp, 26), filename, function, line);
+#define X_LOG_LEVEL X_LOG_DEBUG
 #endif
-}
+#endif
+
+/// @brief The maximum length of the log prefix.
+#ifndef X_LOG_PREFIX_LIMIT
+#ifdef NDEBUG
+#define X_LOG_PREFIX_LIMIT (64)
+#else
+#define X_LOG_PREFIX_LIMIT (256)
+#endif
+#endif
+
+/// @brief The maximum length of the log message.
+#ifndef X_LOG_MSG_LIMIT
+#define X_LOG_MSG_LIMIT (256)
+#endif
 
 template<char level, typename... Args>
-void _x_log_impl(
-    const char* filename, const char* function, const long line,
-    FILE* file, const char* format, Args&&... args)
-{
-  char color_level[8]{0};
-  char color_reset[8]{0};
+X_INL void _x_log_impl(
+    const char* filename, const char* function, const long line, FILE* stream,
+    const char* format, Args&&... args);
 
-  if constexpr (level == 'p' || level == 'P') {
-#if X_LOG_LEVEL >= X_LOG_PLAIN
-    snprintf(color_level, 8, _X_LOG_COLOR_P);
-#else
-    return;
-#endif
-  } else if constexpr (level == 'f' || level == 'F') {
-#if X_LOG_LEVEL >= X_LOG_FATAL
-    snprintf(color_level, 8, _X_LOG_COLOR_F);
-#else
-    return;
-#endif
-  } else if constexpr (level == 'e' || level == 'E') {
-#if X_LOG_LEVEL >= X_LOG_ERROR
-    snprintf(color_level, 8, _X_LOG_COLOR_E);
-#else
-    return;
-#endif
-  } else if constexpr (level == 'w' || level == 'W') {
-#if X_LOG_LEVEL >= X_LOG_WARNING
-    snprintf(color_level, 8, _X_LOG_COLOR_W);
-#else
-    return;
-#endif
-  } else if constexpr (level == 'i' || level == 'I') {
-#if X_LOG_LEVEL >= X_LOG_INFO
-    snprintf(color_level, 8, _X_LOG_COLOR_I);
-#else
-    return;
-#endif
-  } else if constexpr (level == 'd' || level == 'D') {
-#if X_LOG_LEVEL >= X_LOG_DEBUG
-    snprintf(color_level, 8, _X_LOG_COLOR_D);
-#else
-    return;
-#endif
-  } else {
-    return;
-  }
+/// @brief Log a message with a specified log level.
+/// @param level The log level, one of 'p', 'f', 'e', 'w', 'i', 'd'.
+/// @param stream The optional file stream to save the log.
+/// @param format The format string as in `printf`.
+/// @param ... The optional arguments as in `printf`.
+/// @attention The log level is case insensitive, and must be known at compile
+///            time.
+#define x_log(level, stream, format, ...) do { \
+  _x_log_impl<level>(__FILENAME__, __FUNCTION__, __LINE__, stream, format, ##__VA_ARGS__); \
+} while (false)
+/** @} */  // Standard IO
 
-  snprintf(color_reset, 8, _X_COLOR_RESET);
+/******************************************************************************
+ * @name String
+ * @brief A collection of string utilities.
+ * @{
+ *****************************************************************************/
+X_INL x_err x_strcpy(char* dst, size_t dsz, const char* src);
 
-  char prefix[X_LOG_PREFIX_LIMIT]{0};
-  _x_log_prefix<level>(prefix, X_LOG_PREFIX_LIMIT, filename, function, line);
+X_INL bool x_strmty(const char* string);
+/** @} */  // String
 
-  std::string fmsg = std::vformat(format, std::make_format_args(args...));
-
-  // NOTE: Cover the case that there are no `{}`s in `format`.
-  char msg[X_LOG_MSG_LIMIT]{0};
-  snprintf(msg, X_LOG_MSG_LIMIT, fmsg.c_str(), std::forward<Args>(args)...);
-
-  if (file == nullptr || file == stdout || file == stderr) {
-    fprintf(
-        file == nullptr ? stdout : file,
-        "%s%s%s%s\n", color_level, prefix, msg, color_reset);
-  } else {
-    fprintf(file, "%s%s\n", prefix, msg);
-  }
-}
-// IMPL_x_log}}}
-
-//*************************************************************** IMPL_x_err{{{
-x_err::x_err()
-  :m_cat(x_err_posix), m_val(0)
-{
-}
-
-x_err::x_err(const int32_t cat)
-{
-  this->set(cat);
-}
-
-x_err::x_err(const int32_t cat, const int32_t val)
-{
-  this->set(cat, val);
-}
-
-x_err::x_err(const int32_t cat, const int32_t val, const char* msg)
-{
-  this->set(cat, val, msg);
-}
-
-x_err::~x_err()
-{
-}
-
-int32_t x_err::cat() const
-{
-  return this->m_cat;
-}
-
-const char* x_err::msg()
-{
-  switch (this->m_cat) {
-#if X_WINDOWS
-    case x_err_posix:
-      if (this->m_msg.empty()) {
-        this->m_msg.resize(64);
-      }
-      strerror_s(
-          this->m_msg.data(), this->m_msg.size(), static_cast<int>(this->m_val));
-      break;
-    case x_err_win32:
-    case x_err_socket:
-      if (this->m_msg.empty()) {
-        this->m_msg.resize(128);
-      }
-      FormatMessageA(
-          FORMAT_MESSAGE_FROM_SYSTEM
-          | FORMAT_MESSAGE_IGNORE_INSERTS
-          | FORMAT_MESSAGE_MAX_WIDTH_MASK,
-          nullptr, static_cast<DWORD>(this->m_val),
-          MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
-          this->m_msg.data(), this->m_msg.size(), nullptr);
-      break;
-#else
-    case x_err_posix:
-      this->m_msg = strerror(static_cast<int>(this->m_val));
-      break;
-#endif
-#if X_ENABLE_CUDA
-    case x_err_cuda:
-      this->m_msg = cudaGetErrorString(static_cast<cudaError_t>(this->m_val));
-      break;
-#endif
-    default:
-      if (this->m_msg.empty()) {
-        this->m_msg.resize(32);
-        snprintf(
-            this->m_msg.data(), this->m_msg.size(), "Custom error %d", this->m_val);
-      }
-  }
-
-  return this->m_msg.c_str();
-}
-
-x_err& x_err::set(const int32_t cat)
-{
-  switch (cat) {
-    case x_err_posix:
-      this->m_cat = cat;
-      this->m_val = static_cast<int32_t>(errno);
-      break;
-#if X_WINDOWS
-    case x_err_win32:
-      this->m_cat = cat;
-      this->m_val = static_cast<int32_t>(GetLastError());
-      break;
-#if X_ENABLE_SOCKET
-    case x_err_socket:
-      this->m_cat = cat;
-      this->m_val = static_cast<int32_t>(WSAGetLastError());
-      break;
-#endif
-#endif
-#if X_ENABLE_CUDA
-    case x_err_cuda:
-      this->m_cat = cat;
-      this->m_val = static_cast<int32_t>(cudaGetLastError());
-      break;
-#endif
-    default:
-      throw std::invalid_argument(
-          std::string("Unsupported error category: ") + std::to_string(cat));
-  }
-
-  this->m_msg.clear();
-
-  return *this;
-}
-
-x_err& x_err::set(
-    const int32_t cat, const int32_t val, bool (*fail)(const int32_t))
-{
-  if (fail == nullptr && (cat <= x_err_custom || cat >= x_err_max)) {
-    throw std::invalid_argument(
-        "A failure predicate is required for a custom error.");
-  }
-
-  this->m_cat = cat;
-  this->m_val = val;
-  this->m_msg.clear();
-  this->m_fail = fail;
-
-  return *this;
-}
-
-x_err& x_err::set(
-    const int32_t cat, const int32_t val, const char* msg,
-    bool (*fail)(const int32_t))
-{
-  if (fail == nullptr && (cat <= x_err_custom || cat >= x_err_max)) {
-    throw std::invalid_argument(
-        "A failure predicate is required for a custom error.");
-  }
-
-  this->m_cat = cat;
-  this->m_val = val;
-  this->m_msg = msg;
-  this->m_fail = fail;
-
-  return *this;
-}
-
-int32_t x_err::val() const
-{
-  return this->m_val;
-}
-
-x_err::operator bool() const
-{
-  if (this->m_fail) {
-    // NOTE: Covers the x_err_custom and other customized cases.
-    return this->m_fail(this->m_val);
-  } else {
-    switch (this->m_cat) {
-#if X_WINDOWS
-      case x_err_win32:
-        return this->m_val != 0;
-#if X_ENABLE_SOCKET
-      case x_err_socket:
-        return this->m_val != 0;
-#endif
-#endif
-#if X_ENABLE_CUDA
-      case x_err_cuda:
-        return this->m_val != cudaSuccess;
-#endif
-      default:
-        // NOTE: Covers the x_err_posix case.
-        return this->m_val != 0;
-    }
-  }
-}
-// IMPL_x_err}}}
-
-//*************************************************************** IMPL_x_cks{{{
-uint32_t x_cks_crc32(const void* data, const size_t size, const uint32_t* prev)
+//******************************************************* IMPL_Communication{{{
+X_INL uint32_t x_cks_crc32(
+    const void* data, const size_t size, const uint32_t* prev)
 {
   uint8_t* d{(uint8_t*)data};
   size_t cnt{size / sizeof(uint8_t)};
@@ -1747,7 +1132,7 @@ uint32_t x_cks_crc32(const void* data, const size_t size, const uint32_t* prev)
   return ~cks;
 }
 
-uint16_t x_cks_rfc1071(const void* data, const size_t size)
+X_INL uint16_t x_cks_rfc1071(const void* data, const size_t size)
 {
   uint16_t* d{(uint16_t*)data};
   size_t cnt{size / sizeof(uint8_t)};
@@ -1769,7 +1154,7 @@ uint16_t x_cks_rfc1071(const void* data, const size_t size)
   return static_cast<uint16_t>(~cks);
 }
 
-uint8_t x_cks_xor(const void* data, const size_t size)
+X_INL uint8_t x_cks_xor(const void* data, const size_t size)
 {
   const uint8_t* d8{(const uint8_t*)data};
   const uint64_t* d64{(const uint64_t*)data};
@@ -1796,10 +1181,9 @@ uint8_t x_cks_xor(const void* data, const size_t size)
 
   return cks.u8[0];
 }
-// IMPL_x_cks}}}
 
 #if X_ENABLE_SOCKET
-//*************************************************************** IMPL_x_skt{{{
+// class x_skt{{{
 x_skt::x_skt()
 {
 }
@@ -1844,9 +1228,9 @@ x_err x_skt::init(const int type)
   return x_err();
 }
 
-x_err x_skt::accept(x_skt* acceptee)
+x_err x_skt::accept(x_skt* client)
 {
-  if (acceptee == nullptr) {
+  if (client == nullptr) {
     return x_err(x_err_posix, EINVAL);
   }
 
@@ -1866,8 +1250,8 @@ x_err x_skt::accept(x_skt* acceptee)
   struct sockaddr addr{0};
   memcpy(&addr, &sin, len);
 
-  acceptee->m_addr = std::move(addr);
-  acceptee->m_hndl = std::move(hndl);
+  client->m_addr = std::move(addr);
+  client->m_hndl = std::move(hndl);
 
   return x_err();
 }
@@ -2091,10 +1475,178 @@ x_err x_skt::setopt(
   return setsockopt(this->m_hndl, lvl, opt, (char*)val, len) == 0
     ? x_err() : x_err(x_err_socket);
 }
-// IMPL_x_skt}}}
+// class x_skt}}}
 #endif  // X_ENABLE_SOCKET
+// IMPL_Communication}}}
 
-//********************************************************* IMPL_x_stopwatch{{{
+//********************************************************** IMPL_Console_IO{{{
+#if !X_WINDOWS
+X_INL int _kbhit()
+{
+  static bool initialized{false};
+  if (!initialized) {
+    struct termios settings{0};
+    tcgetattr(STDIN_FILENO, &settings);
+    settings.c_lflag &= ~ICANON;
+    tcsetattr(STDIN_FILENO, TCSANOW, &settings);
+    setbuf(stdin, nullptr);
+    initialized = true;
+  }
+
+  int byte{0};
+  ioctl(STDIN_FILENO, FIONREAD, &bytes);
+  return bytes;
+}
+#endif
+
+X_INL int x_getch()
+{
+#if X_WINDOWS
+  return _kbhit() ? toupper(_getch()) : 0;
+#else
+  int key{0};
+
+  int bytes_waiting{_kbhit()};
+  if (bytes_waiting <= 0) {
+    return 0;
+  }
+
+  struct termios old_settings{0};
+  struct termios new_settings{0};
+  union {
+    int in;
+    char ch[4];
+  } buf{0};
+  int ierr{0};
+  ssize_t bytes_read{0};
+
+  ierr = tcgetattr(0, &old_settings);
+  if (ierr != 0) {
+    return 0;
+  }
+
+  new_settings = old_settings;
+  new_settings.c_lflag &= ~ICANON;
+  new_settings.c_lflag &= ~ECHO;
+
+  ierr = tcsetattr(0, TCSANOW, &new_settings);
+  if (ierr != 0) {
+    tcsetattr(0, TCSANOW, &old_settings);
+    return 0;
+  }
+
+  bytes_read = read(STDIN_FILENO, &buf.in, bytes_waiting);
+  if (bytes_read <= 0) {
+    tcsetattr(0, TCSANOW, &old_settings);
+    return 0;
+  } else if (bytes_read >= 2) {
+    if (buf.ch[0] == 0x1B && buf.ch[1] == 0x5B) {
+      if (bytes_read == 2) {
+        key = X_KEY_ESC;
+      } else {
+        switch (buf.ch[2]) {
+          case X_KEY_A:
+            key = X_KEY_UP;
+            break;
+          case X_KEY_B:
+            key = X_KEY_DOWN;
+            break;
+          case X_KEY_C:
+            key = X_KEY_RIGHT;
+            break;
+          case X_KEY_D:
+            key = X_KEY_LEFT;
+            break;
+        }
+      }
+    } else {
+      key = buf.ch[0];
+    }
+  } else {
+    key = buf.ch[0];
+  }
+
+  tcsetattr(0, TCSADRAIN, &old_settings);
+
+  return isalpha(key) ? toupper(key) : key;
+#endif
+}
+// IMPL_Console_IO}}}
+
+//******************************************************* IMPL_Date_and_Time{{{
+X_INL double x_duration(
+    const char* unit, const struct timespec start, const struct timespec stop)
+{
+  double diff{static_cast<double>(
+      (stop.tv_sec - start.tv_sec) * 1000000000 + stop.tv_nsec - start.tv_nsec)};
+
+  if (strcmp(unit, "h") == 0) {
+    return diff / 3600000000000.0;
+  } else if (strcmp(unit, "m") == 0) {
+    return diff / 60000000000.0;
+  } else if (strcmp(unit, "s") == 0) {
+    return diff / 1000000000.0;
+  } else if (strcmp(unit, "ms") == 0) {
+    return diff / 1000000.0;
+  } else if (strcmp(unit, "us") == 0) {
+    return diff / 1000.0;
+  } else { // if (strcmp(unit, "ns") == 0)
+    return diff;
+  }
+}
+
+X_INL struct timespec x_now()
+{
+  struct timespec ts{0};
+
+#if X_WINDOWS || __STDC_VERSION__ >= 201112L
+  timespec_get(&ts, TIME_UTC);
+#else
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+#endif
+
+  return ts;
+}
+
+X_INL void x_sleep(const unsigned long ms)
+{
+#if X_WINDOWS
+  Sleep(ms);
+#else
+  struct timespec req{0};
+  struct timespec rem{0};
+
+  req.tv_sec = ms / 1000;
+  req.tv_nsec = static_cast<long>((ms % 1000) * 1000000);
+
+  if (nanosleep(&req, &rem) == EINTR) {
+    nanosleep(&rem, nullptr);
+  }
+#endif
+}
+
+X_INL const char* x_timestamp(char* buf, const size_t bsz)
+{
+  if (buf == nullptr) {
+    return "";
+  }
+
+  time_t now{time(nullptr)};
+
+#if X_WINDOWS
+  if (ctime_s(buf, bsz, &now) != 0) {
+    return "";
+  }
+#else
+  ctime_r(&now, buf);
+#endif
+
+  buf[strlen(buf) - 1] = '\0';
+
+  return buf;
+}
+
+// class x_stopwatch{{{
 x_stopwatch::x_stopwatch()
 {
 }
@@ -2181,10 +1733,41 @@ x_swstats x_stopwatch::toc(
 
   return this->m_stats;
 }
-// IMPL_x_stopwatch}}}
+// class x_stopwatch}}}
 
 #if X_ENABLE_CUDA
-//****************************************************** IMPL_x_stopwatch_cu{{{
+X_INL double x_duration_cu(
+    const char* unit, const cudaEvent_t start, const cudaEvent_t stop)
+{
+  cudaError_t cerr = cudaEventSynchronize(stop);
+  if (cerr != cudaSuccess) {
+    fprintf(stderr, "cudaEventSynchronize: %s\n", cudaGetErrorString(cerr));
+    return -1.0;
+  }
+
+  float ms{0.0f};
+  cerr = cudaEventElapsedTime(&ms, start, stop);
+  if (cerr != cudaSuccess) {
+    fprintf(stderr, "cudaEventElapsedTime: %s\n", cudaGetErrorString(cerr));
+    return -1.0;
+  }
+
+  if (strcmp(unit, "h") == 0) {
+    return static_cast<double>(ms) / 3600000.0;
+  } else if (strcmp(unit, "m") == 0) {
+    return static_cast<double>(ms) / 60000.0;
+  } else if (strcmp(unit, "s") == 0) {
+    return static_cast<double>(ms) / 1000.0;
+  } else if (strcmp(unit, "ms") == 0) {
+    return static_cast<double>(ms);
+  } else if (strcmp(unit, "us") == 0) {
+    return static_cast<double>(ms) * 1000.0;
+  } else { // if (strcmp(unit, "ns") == 0)
+    return static_cast<double>(ms) * 1000000;
+  }
+}
+
+// class x_stopwatch_cu{{{
 x_stopwatch_cu::x_stopwatch_cu()
 {
   cudaError_t cerr = cudaEventCreate(&this->m_start);
@@ -2318,8 +1901,847 @@ x_swstats x_stopwatch_cu::toc(
 
   return this->m_stats;
 }
-// IMPL_x_stopwatch_cu}}}
+// class x_stopwatch_cu}}}
 #endif
+// IMPL_Date_and_Time}}}
+
+//****************************************************** IMPL_Error_Handling{{{
+X_INL bool x_fail(const x_err& err)
+{
+  return err;
+}
+
+X_INL bool x_succ(const x_err& err)
+{
+  return !err;
+}
+
+// class x_err{{{
+x_err::x_err()
+  :m_cat(x_err_posix), m_val(0)
+{
+}
+
+x_err::x_err(const int32_t cat)
+{
+  this->set(cat);
+}
+
+x_err::x_err(const int32_t cat, const int32_t val, bool (*fail)(const int32_t))
+{
+  this->set(cat, val, fail);
+}
+
+x_err::x_err(
+    const int32_t cat, const int32_t val, const char* msg,
+    bool (*fail)(const int32_t))
+{
+  this->set(cat, val, msg, fail);
+}
+
+x_err::~x_err()
+{
+}
+
+int32_t x_err::cat() const
+{
+  return this->m_cat;
+}
+
+const char* x_err::msg()
+{
+  switch (this->m_cat) {
+#if X_WINDOWS
+    case x_err_posix:
+      if (this->m_msg.empty()) {
+        this->m_msg.resize(64);
+      }
+      strerror_s(
+          this->m_msg.data(), this->m_msg.size(), static_cast<int>(this->m_val));
+      break;
+    case x_err_win32:
+    case x_err_socket:
+      if (this->m_msg.empty()) {
+        this->m_msg.resize(128);
+      }
+      FormatMessageA(
+          FORMAT_MESSAGE_FROM_SYSTEM
+          | FORMAT_MESSAGE_IGNORE_INSERTS
+          | FORMAT_MESSAGE_MAX_WIDTH_MASK,
+          nullptr, static_cast<DWORD>(this->m_val),
+          MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
+          this->m_msg.data(), this->m_msg.size(), nullptr);
+      break;
+#else
+    case x_err_posix:
+      this->m_msg = strerror(static_cast<int>(this->m_val));
+      break;
+#endif
+#if X_ENABLE_CUDA
+    case x_err_cuda:
+      this->m_msg = cudaGetErrorString(static_cast<cudaError_t>(this->m_val));
+      break;
+#endif
+    default:
+      if (this->m_msg.empty()) {
+        this->m_msg.resize(32);
+        snprintf(
+            this->m_msg.data(), this->m_msg.size(), "Custom error %d", this->m_val);
+      }
+  }
+
+  return this->m_msg.c_str();
+}
+
+x_err& x_err::set(const int32_t cat)
+{
+  switch (cat) {
+    case x_err_posix:
+      this->m_cat = cat;
+      this->m_val = static_cast<int32_t>(errno);
+      break;
+#if X_WINDOWS
+    case x_err_win32:
+      this->m_cat = cat;
+      this->m_val = static_cast<int32_t>(GetLastError());
+      break;
+#if X_ENABLE_SOCKET
+    case x_err_socket:
+      this->m_cat = cat;
+      this->m_val = static_cast<int32_t>(WSAGetLastError());
+      break;
+#endif
+#endif
+#if X_ENABLE_CUDA
+    case x_err_cuda:
+      this->m_cat = cat;
+      this->m_val = static_cast<int32_t>(cudaGetLastError());
+      break;
+#endif
+    default:
+      throw std::invalid_argument(
+          std::string("Unsupported error category: ") + std::to_string(cat));
+  }
+
+  this->m_msg.clear();
+
+  return *this;
+}
+
+x_err& x_err::set(
+    const int32_t cat, const int32_t val, bool (*fail)(const int32_t))
+{
+  if (this->m_fail == nullptr && fail == nullptr
+      && (cat <= x_err_custom || cat >= x_err_max)) {
+    throw std::invalid_argument(
+        "A failure predicate is required for a custom error.");
+  }
+
+  this->m_cat = cat;
+  this->m_val = val;
+  this->m_msg.clear();
+  this->m_fail = fail;
+
+  return *this;
+}
+
+x_err& x_err::set(
+    const int32_t cat, const int32_t val, const char* msg,
+    bool (*fail)(const int32_t))
+{
+  if (this->m_fail == nullptr && fail == nullptr
+      && (cat <= x_err_custom || cat >= x_err_max)) {
+    throw std::invalid_argument(
+        "A failure predicate is required for a custom error.");
+  }
+
+  this->m_cat = cat;
+  this->m_val = val;
+  this->m_msg = msg;
+  this->m_fail = fail;
+
+  return *this;
+}
+
+int32_t x_err::val() const
+{
+  return this->m_val;
+}
+
+x_err::operator bool() const
+{
+  if (this->m_fail) {
+    // NOTE: Covers the x_err_custom and other customized cases.
+    return this->m_fail(this->m_val);
+  } else {
+    switch (this->m_cat) {
+#if X_WINDOWS
+      case x_err_win32:
+        return this->m_val != 0;
+#if X_ENABLE_SOCKET
+      case x_err_socket:
+        return this->m_val != 0;
+#endif
+#endif
+#if X_ENABLE_CUDA
+      case x_err_cuda:
+        return this->m_val != cudaSuccess;
+#endif
+      default:
+        // NOTE: Covers the x_err_posix case.
+        return this->m_val != 0;
+    }
+  }
+}
+// class x_err}}}
+// IMPL_Error_Handling}}}
+
+//********************************************************* IMPL_File_System{{{
+X_INL bool x_fexist(const char* file)
+{
+  int ierr{0};
+
+#if X_WINDOWS
+  struct _stat64 s{0};
+  ierr = _stat64(file, &s);
+#else
+  struct stat s{0};
+  ierr = stat(file, &s);
+#endif
+
+  return ierr == 0;
+}
+
+X_INL x_err x_fopen(FILE** stream, const char* file, const char* mode)
+{
+#if X_WINDOWS
+  errno_t ierr = fopen_s(stream, file, mode);
+  if (ierr != 0) {
+    return x_err(x_err_posix, ierr);
+  }
+#else
+  *stream = fopen(file, mode);
+  if (*stream == nullptr) {
+    return x_err(x_err_posix);
+  }
+#endif
+
+  return x_err();
+}
+
+X_INL const char* x_fpath(char* dst, const char* src)
+{
+#if X_WINDOWS
+  return dst != nullptr ? _fullpath(dst, src, X_PATH_MAX) : nullptr;
+#else
+  return dst != nullptr ? realpath(src, dst) : nullptr;
+#endif
+}
+
+X_INL long long x_fsize(const char* file)
+{
+  int ierr{0};
+
+#if X_WINDOWS
+  struct _stat64 s{0};
+  ierr = _stat64(file, &s);
+#else
+  struct stat s{0};
+  ierr = stat(file, &s);
+#endif
+
+  return ierr == 0 ? s.st_size : -1;
+}
+
+X_INL x_err x_split_path(
+    const char *path,
+    char *root, const size_t rsz, char *dir, const size_t dsz,
+    char *file, const size_t fsz, char *ext, const size_t esz)
+{
+  char full[X_PATH_MAX]{0};
+  x_fpath(full, path);
+
+  if (!x_fexist(full)) {
+    return x_err(x_err_posix, ENOENT);
+  }
+
+#if X_WINDOWS
+  return x_err(
+      x_err_posix, _splitpath_s(full, root, rsz, dir, dsz, file, fsz, ext, esz));
+#else
+  if (root == nullptr || rsz == 0 || dir == nullptr || dsz == 0
+      || file == nullptr || fsz == 0 || ext == nullptr || esz == 0) {
+    return x_err(x_err_posix, EINVAL);
+  }
+
+  if (root != nullptr) { root[0] = '\0'; }
+  if (dir != nullptr) { dir[0] = '\0'; }
+  if (file != nullptr) { file[0] = '\0'; }
+  if (ext != nullptr) { ext[0] = '\0'; }
+
+  size_t psz{strlen(full)};
+  size_t sz{0};
+  char* begin{nullptr};
+  char* end{nullptr};
+
+  // root
+  begin = strchr((char*)path, '/');
+  if (begin == nullptr) {
+    return x_err(x_err_posix, ENOENT);
+  }
+
+  end = strchr(begin + 1, '/');
+  if (end == nullptr) {
+    end = full + psz;
+  }
+
+  if (root != nullptr) {
+    sz = end - begin;
+    if (sz >= rsz) {
+      return x_err(x_err_posix, ENOBUFS);
+    }
+
+    memcpy(root, begin, sz);
+    root[sz] = '\0';
+
+    if (end == nullptr) {
+      return err;
+    }
+  }
+
+  // dir
+  begin = strchr(end, '/');
+  if (begin == nullptr) {
+    return err;
+  }
+
+  end = strrchr((char*)path, '/');
+  if (end <= begin) {
+    return err;
+  }
+  if (end == nullptr) {
+    end = full + psz;
+  }
+
+  if (dir != nullptr) {
+    sz = end - begin;
+    if (sz >= dsz) {
+      return x_err(x_err_posix, ENOBUFS);
+    }
+
+    memcpy(dir, begin, sz);
+    dir[sz] = '\0';
+
+    if (end == nullptr) {
+      return err;
+    }
+  }
+
+  // file
+  begin = end + 1;
+  if ((begin - full) >= 0) {
+    return err;
+  }
+
+  end = strrchr((char*)path, '.');
+  if (end <= begin) {
+    return err;
+  }
+  if (end == nullptr) {
+    end = full + psz;
+  }
+
+  if (file != nullptr) {
+    sz = end - begin;
+    if (sz >= fsz) {
+      return x_err(x_err_posix, ENOBUFS);
+    }
+
+    memcpy(file, begin, sz);
+    file[sz] = '\0';
+  }
+
+  // ext
+  if (ext != nullptr) {
+    begin = end;
+    end = full + psz;
+    if (end <= begin) {
+      return err;
+    }
+
+    sz = end - begin;
+    memcpy(ext, begin, sz);
+    ext[sz] = '\0';
+  }
+
+  return err;
+#endif
+}
+// IMPL_File_System}}}
+
+//************************************************************ IMPL_Hardware{{{
+X_INL size_t x_ncpu()
+{
+#if X_WINDOWS
+  SYSTEM_INFO info{0};
+  GetSystemInfo(&info);
+  return static_cast<size_t>(info.dwNumberOfProcessors);
+#else
+  return static_cast<size_t>(sysconf(_SC_NPROCESSORS_ONLN));
+#endif
+}
+
+X_INL size_t x_ngpu()
+{
+#if X_ENABLE_CUDA
+  int count{0};
+  cudaError_t cerr = cudaGetDeviceCount(&count);
+  if (cerr != cudaSuccess) {
+    fprintf(stderr, "cudaGetDeviceCount: %s\n", cudaGetErrorString(cerr));
+    return 0;
+  }
+
+  return static_cast<size_t>(count);
+#else
+  return 0;
+#endif
+}
+// IMPL_Hardware}}}
+
+//********************************************************* IMPL_Mathematics{{{
+template<typename T>
+X_INL consteval T x_KiB(const T n)
+{
+  return n * static_cast<T>(1024);
+}
+
+template<typename T>
+X_INL consteval T x_MiB(const T n)
+{
+  return n * static_cast<T>(1048576);
+}
+
+template<typename T>
+X_INL consteval T x_GiB(const T n)
+{
+  return n * static_cast<T>(1073741824);
+}
+
+template<typename T>
+X_INL consteval T x_TiB(const T n)
+{
+  return n * static_cast<T>(1099511627776);
+}
+
+template<typename T>
+X_INL consteval T x_PiB(const T n)
+{
+  return n * static_cast<T>(1125899906842620);
+}
+
+template<typename T>
+X_INL consteval typename std::enable_if<std::is_integral_v<T>, T>::type
+x_bit(const T n)
+{
+  return static_cast<T>(1) << n;
+}
+
+template<typename T>
+X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
+x_gcd(const T m, const T n)
+{
+  return n == 0 ? m : x_gcd(n, m % n);
+}
+
+template<typename T>
+X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
+x_lcm(const T m, const T n)
+{
+  if (m == 0 || n == 0) {
+    return 0;
+  }
+
+  return m / x_gcd(m, n) * n;
+}
+
+template<typename T>
+X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
+x_next_exp(const T base, const T src)
+{
+  if (src == 0) {
+    return 1;
+  }
+
+  if (base == 2) {
+    if ((src & (src - 1)) == 0) {
+      return src;
+    }
+
+    T s{src};
+    T count{0};
+    while (s != 0) {
+      s >>= 1;
+      count += 1;
+    }
+
+    return 1 << count;
+  } else {
+    double exp =
+      std::log(static_cast<double>(src)) / std::log(static_cast<double>(base));
+
+    if (exp == std::round(exp)) {
+      return src;
+    }
+
+    return std::pow(base, static_cast<size_t>(std::ceil(exp)));
+  }
+}
+
+template<typename T>
+X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
+x_next_mul(const T base, const T src)
+{
+  return (src / base + 1) * base;
+}
+
+template<typename T>
+X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
+x_prev_exp(const T base, const T src)
+{
+  if (src == 0) {
+    return 0;
+  }
+
+  if (base == 2) {
+    if ((src & (src - 1)) == 0) {
+      return src;
+    }
+
+    T s{src};
+    T count{0};
+    while (s != 0) {
+      s >>= 1;
+      count += 1;
+    }
+
+    return 1 << (count - 1);
+  } else {
+    double exp =
+      std::log(static_cast<double>(src)) / std::log(static_cast<double>(base));
+
+    if (exp == std::round(exp)) {
+      return src;
+    }
+
+    return std::pow(base, static_cast<size_t>(std::floor(exp)));
+  }
+}
+
+template<typename T>
+X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
+x_prev_mul(const T base, const T src)
+{
+  return (src / base) * base;
+}
+// IMPL_Mathematics}}}
+
+//*************************************************** IMPL_Memory_Management{{{
+template<typename T, size_t N>
+X_INL constexpr size_t x_count(const T (&array)[N])
+{
+  return N;
+}
+
+template<typename T, bool array>
+X_INL void x_delete(T*& ptr)
+{
+  if (ptr != nullptr) {
+    if constexpr (array) {
+      delete[] ptr;
+    } else {
+      delete ptr;
+    }
+    ptr = nullptr;
+  }
+}
+
+template<typename T>
+X_INL void x_free(T*& ptr)
+{
+  if (ptr != nullptr) {
+    free(ptr);
+    ptr = nullptr;
+  }
+}
+
+template<typename T>
+X_INL void x_free(volatile T*& ptr)
+{
+  x_free<T>(const_cast<T*>(ptr));
+}
+
+template<typename T>
+X_INL x_err x_malloc(T** ptr, const size_t size)
+{
+  if (*ptr != nullptr) {
+    return x_err(x_err_posix, EINVAL);
+  }
+
+  *ptr = static_cast<T*>(malloc(size));
+  if (*ptr == nullptr) {
+    return x_err(x_err_posix);
+  }
+
+  return x_err();
+}
+
+X_INL x_err x_memcpy(void* dst, const void* src, const size_t size)
+{
+  if (dst == nullptr || src == nullptr) {
+    return x_err(x_err_posix, EINVAL);
+  }
+
+  if (size != 0) {
+    memcpy(dst, src, size);
+  }
+
+  return x_err();
+}
+
+X_INL x_err x_meminfo(size_t* avail, size_t* total)
+{
+  if (avail == nullptr && total == nullptr) {
+    return x_err(x_err_posix, EINVAL);
+  }
+
+#if X_WINDOWS
+  MEMORYSTATUSEX status{0};
+  status.dwLength = sizeof(status);
+
+  if (!GlobalMemoryStatusEx(&status)) {
+    return x_err(x_err_win32);
+  }
+
+  if (avail != nullptr) {
+    *avail = static_cast<size_t>(status.ullAvailPhys);
+  }
+  if (total != nullptr) {
+    *total = static_cast<size_t>(status.ullTotalPhys);
+  }
+#else
+  struct sysinfo info{0};
+  if (sysinfo(&info) != 0) {
+    return x_err(x_err_posix);
+  }
+
+  if (avail != nullptr) {
+    *avail = static_cast<size_t>(info.freeram);
+  }
+  if (total != nullptr) {
+    *total = static_cast<size_t>(info.totalram);
+  }
+#endif
+
+  return x_err();
+}
+
+#if X_ENABLE_CUDA
+template<typename T>
+X_INL void x_free_cu(T*& ptr)
+{
+  if (ptr != nullptr) {
+    cudaFree(ptr);
+    ptr = nullptr;
+  }
+}
+
+template<typename T>
+X_INL void x_free_cu(volatile T*& ptr)
+{
+  x_free_cu<T>(const_cast<T*>(ptr));
+}
+
+template<typename T>
+X_INL x_err x_malloc_cu(T** ptr, const size_t size)
+{
+  if (*ptr != nullptr) {
+    return x_err(x_err_posix, EINVAL);
+  }
+
+  cudaError_t cerr = cudaMalloc(ptr, size);
+  if (cerr != cudaSuccess) {
+    return x_err(x_err_cuda, cerr);
+  }
+
+  return x_err();
+}
+
+X_INL x_err x_memcpy_cu(void* dst, const void* src, const size_t size)
+{
+  if (dst == nullptr || src == nullptr) {
+    return x_err(x_err_posix, EINVAL);
+  }
+
+  if (size != 0) {
+    cudaError_t cerr = cudaMemcpy(dst, src, size, cudaMemcpyDefault);
+    if (cerr != cudaSuccess) {
+      return x_err(x_err_cuda, cerr);
+    }
+  }
+
+  return x_err();
+}
+
+X_INL x_err x_meminfo_cu(size_t* avail, size_t* total)
+{
+  if (avail == nullptr && total == nullptr) {
+    return x_err(x_err_posix, EINVAL);
+  }
+
+  cudaError_t cerr = cudaMemGetInfo(avail, total);
+  if (cerr != cudaSuccess) {
+    return x_err(x_err_cuda, cerr);
+  }
+
+  return x_err();
+}
+#endif
+// IMPL_Memory_Management}}}
+
+//********************************************************* IMPL_Standard_IO{{{
+// x_log{{{
+#define _X_COLOR_BLACK   "\033[90m"
+#define _X_COLOR_RED     "\033[91m"
+#define _X_COLOR_GREEN   "\033[92m"
+#define _X_COLOR_YELLOW  "\033[93m"
+#define _X_COLOR_BLUE    "\033[94m"
+#define _X_COLOR_MAGENTA "\033[95m"
+#define _X_COLOR_CYAN    "\033[96m"
+#define _X_COLOR_WHITE   "\033[97m"
+#define _X_COLOR_RESET   "\033[0m"
+
+#define _X_LOG_COLOR_P _X_COLOR_WHITE
+#define _X_LOG_COLOR_F _X_COLOR_MAGENTA
+#define _X_LOG_COLOR_E _X_COLOR_RED
+#define _X_LOG_COLOR_W _X_COLOR_YELLOW
+#define _X_LOG_COLOR_I _X_COLOR_GREEN
+#define _X_LOG_COLOR_D _X_COLOR_CYAN
+
+template<char level>
+X_INL void _x_log_prefix(
+    char* buf, size_t bsz,
+    const char* filename, const char* function, const long line)
+{
+  char timestamp[26]{0};
+
+#ifdef NDEBUG
+  snprintf(buf, bsz, "[%c %s] ", toupper(level), x_timestamp(timestamp, 26));
+#else
+  snprintf(
+      buf, bsz, "[%c %s | %s - %s - %ld] ",
+      toupper(level), x_timestamp(timestamp, 26), filename, function, line);
+#endif
+}
+
+template<char level, typename... Args>
+X_INL void _x_log_impl(
+    const char* filename, const char* function, const long line,
+    FILE* file, const char* format, Args&&... args)
+{
+  char color_level[8]{0};
+  char color_reset[8]{0};
+
+  if constexpr (level == 'p' || level == 'P') {
+#if X_LOG_LEVEL >= X_LOG_PLAIN
+    snprintf(color_level, 8, _X_LOG_COLOR_P);
+#else
+    return;
+#endif
+  } else if constexpr (level == 'f' || level == 'F') {
+#if X_LOG_LEVEL >= X_LOG_FATAL
+    snprintf(color_level, 8, _X_LOG_COLOR_F);
+#else
+    return;
+#endif
+  } else if constexpr (level == 'e' || level == 'E') {
+#if X_LOG_LEVEL >= X_LOG_ERROR
+    snprintf(color_level, 8, _X_LOG_COLOR_E);
+#else
+    return;
+#endif
+  } else if constexpr (level == 'w' || level == 'W') {
+#if X_LOG_LEVEL >= X_LOG_WARNING
+    snprintf(color_level, 8, _X_LOG_COLOR_W);
+#else
+    return;
+#endif
+  } else if constexpr (level == 'i' || level == 'I') {
+#if X_LOG_LEVEL >= X_LOG_INFO
+    snprintf(color_level, 8, _X_LOG_COLOR_I);
+#else
+    return;
+#endif
+  } else if constexpr (level == 'd' || level == 'D') {
+#if X_LOG_LEVEL >= X_LOG_DEBUG
+    snprintf(color_level, 8, _X_LOG_COLOR_D);
+#else
+    return;
+#endif
+  } else {
+    return;
+  }
+
+  snprintf(color_reset, 8, _X_COLOR_RESET);
+
+  char prefix[X_LOG_PREFIX_LIMIT]{0};
+  _x_log_prefix<level>(prefix, X_LOG_PREFIX_LIMIT, filename, function, line);
+
+  std::string fmsg = std::vformat(format, std::make_format_args(args...));
+
+  // NOTE: Cover the case that there are no `{}`s in `format`.
+  char msg[X_LOG_MSG_LIMIT]{0};
+  snprintf(msg, X_LOG_MSG_LIMIT, fmsg.c_str(), std::forward<Args>(args)...);
+
+  if (file == nullptr || file == stdout || file == stderr) {
+    fprintf(
+        file == nullptr ? stdout : file,
+        "%s%s%s%s\n", color_level, prefix, msg, color_reset);
+  } else {
+    fprintf(file, "%s%s\n", prefix, msg);
+  }
+}
+// x_log}}}
+// IMPL_Standard_IO}}}
+
+//************************************************************** IMPL_String{{{
+X_INL x_err x_strcpy(char* dst, size_t dsz, const char* src)
+{
+  if (dst == nullptr || dsz == 0) {
+    return x_err(x_err_posix, EINVAL);
+  }
+
+  size_t cpy_sz{dsz - 1};
+  size_t src_sz{strlen(src)};
+
+  if (src_sz > 0) {
+    cpy_sz = cpy_sz < src_sz ? cpy_sz : src_sz;
+
+    x_err err = x_memcpy(dst, src, cpy_sz);
+    if (err) {
+      return err;
+    }
+  }
+
+  dst[cpy_sz] = '\0';
+
+  return x_err();
+}
+
+X_INL bool x_strmty(const char* string)
+{
+  return string == nullptr || string[0] == '\0';
+}
+// IMPL_String}}}
 
 
 #endif  // X_H
