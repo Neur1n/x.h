@@ -11,7 +11,7 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-06-11 13:24
+Last update: 2024-06-11 16:00
 Version: v0.7.0
 ******************************************************************************/
 #ifndef X_H
@@ -223,14 +223,16 @@ Version: v0.7.0
 #include <cerrno>
 #include <cfloat>
 #include <cmath>
+#include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
 
-#if (X_CLANG >= x_ver(17, 0, 0)) || (X_GCC >= x_ver(13, 0, 0)) || (X_MSVC >= x_ver(19, 29, 0))
+#if (__cplusplus >= 202002L && (X_CLANG >= x_ver(17, 0, 0)) || (X_GCC >= x_ver(13, 0, 0)) || (X_MSVC >= x_ver(19, 29, 0)))
 #include <format>
 #endif
+#include <stdexcept>
 #include <string>
 
 #include <fcntl.h>
@@ -663,7 +665,7 @@ X_INL double x_duration_cu(
 class x_stopwatch_cu
 {
 public:
-  X_INL x_stopwatch_cu();
+  X_INL x_stopwatch_cu(const unsigned int flags = cudaEventDefault);
 
   X_INL ~x_stopwatch_cu();
 
@@ -671,13 +673,21 @@ public:
 
   X_INL void reset();
 
-  X_INL void tic(const bool echo = false);
+  X_INL void tic(
+      const bool echo = false,
+      cudaStream_t const stream = nullptr,
+      const unsigned int flags = cudaEventDefault);
 
-  X_INL void toc(const char* unit, const bool echo = false);
+  X_INL void toc(
+      const char* unit, const bool echo = false,
+      cudaStream_t const stream = nullptr,
+      const unsigned int flags = cudaEventDefault);
 
   X_INL x_swstats toc(
       const char* unit, const size_t cycle, const char* title = "",
-      const bool echo = false);
+      const bool echo = false,
+      cudaStream_t const stream = nullptr,
+      const unsigned int flags = cudaEventDefault);
 
 private:
   cudaEvent_t m_start{nullptr};
@@ -914,41 +924,35 @@ static constexpr T x_Pi = static_cast<T>(3.1415926535897932384626433832795028841
 
 /// @brief Kibibyte constant generator, i.e., 1 KiB = 1024 bytes.
 /// @param n The scale factor.
-/// @attention The scale factor must be known at compile time.
 template<typename T>
-X_INL consteval T x_KiB(const T n);
+X_INL constexpr T x_KiB(const T n);
 /// @brief Mebibyte constant generator, i.e., 1 MiB = 1048576 bytes.
 /// @param n The scale factor.
-/// @attention The scale factor must be known at compile time.
 template<typename T>
-X_INL consteval T x_MiB(const T n);
+X_INL constexpr T x_MiB(const T n);
 
 /// @brief Gibibyte constant generator, i.e., 1 GiB = 1073741824 bytes.
 /// @param n The scale factor.
-/// @attention The scale factor must be known at compile time.
 template<typename T>
-X_INL consteval T x_GiB(const T n);
+X_INL constexpr T x_GiB(const T n);
 
 /// @brief Tebibyte constant generator, i.e., 1 TiB = 1099511627776 bytes.
 /// @param n The scale factor.
-/// @attention The scale factor must be known at compile time.
 template<typename T>
-X_INL consteval T x_TiB(const T n);
+X_INL constexpr T x_TiB(const T n);
 
 /// @brief Pebibyte constant generator, i.e., 1 PiB = 1125899906842620 bytes.
 /// @param n The scale factor.
-/// @attention The scale factor must be known at compile time.
 template<typename T>
-X_INL consteval T x_PiB(const T n);
+X_INL constexpr T x_PiB(const T n);
 
 /// @brief A macro used to generate an integer with only the n-th bit set to 1.
 ///        This is useful when one needs enumerations like `0b0001`, `0b0010`,
 ///        `0b0100` to perform the `&`, `|`, `~` operations.
 /// @param n The n-th bit.
 /// @see C++'s `std::bitset` for a more versatile solution.
-/// @attention The n-th bit must be known at compile time.
 template<typename T>
-X_INL consteval typename std::enable_if<std::is_integral_v<T>, T>::type
+X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
 x_bit(const T n);
 
 /// @brief Calculate the greatest common divisor of two integers.
@@ -1502,8 +1506,8 @@ X_INL int _kbhit()
   }
 
   int byte{0};
-  ioctl(STDIN_FILENO, FIONREAD, &bytes);
-  return bytes;
+  ioctl(STDIN_FILENO, FIONREAD, &byte);
+  return byte;
 }
 #endif
 
@@ -1776,15 +1780,15 @@ X_INL double x_duration_cu(
 }
 
 // class x_stopwatch_cu{{{
-x_stopwatch_cu::x_stopwatch_cu()
+x_stopwatch_cu::x_stopwatch_cu(const unsigned int flags)
 {
-  cudaError_t cerr = cudaEventCreate(&this->m_start);
+  cudaError_t cerr = cudaEventCreateWithFlags(&this->m_start, flags);
   if (cerr != cudaSuccess) {
     throw std::runtime_error(
         std::string("cudaEventCreate: ") + cudaGetErrorString(cerr));
   }
 
-  cerr = cudaEventCreate(&this->m_stop);
+  cerr = cudaEventCreate(&this->m_stop, flags);
   if (cerr != cudaSuccess) {
     throw std::runtime_error(
         std::string("cudaEventCreate: ") + cudaGetErrorString(cerr));
@@ -1808,9 +1812,10 @@ void x_stopwatch_cu::reset()
   this->m_elapsed = 0.0;
 }
 
-void x_stopwatch_cu::tic(const bool echo)
+void x_stopwatch_cu::tic(
+    const bool echo, cudaStream_t const stream, const unsigned int flags)
 {
-  cudaError_t cerr = cudaEventRecord(this->m_start);
+  cudaError_t cerr = cudaEventRecordWithFlags(this->m_start, stream, flags);
   if (cerr != cudaSuccess) {
     throw std::runtime_error(
         std::string("cudaEventRecord: ") + cudaGetErrorString(cerr));
@@ -1822,9 +1827,11 @@ void x_stopwatch_cu::tic(const bool echo)
   }
 }
 
-void x_stopwatch_cu::toc(const char* unit, const bool echo)
+void x_stopwatch_cu::toc(
+    const char* unit, const bool echo,
+    cudaStream_t const stream, const unsigned int flags)
 {
-  cudaError_t cerr = cudaEventRecord(this->m_stop);
+  cudaError_t cerr = cudaEventRecordWithFlags(this->m_stop, stream, flags);
   if (cerr != cudaSuccess) {
     throw std::runtime_error(
         std::string("cudaEventRecord: ") + cudaGetErrorString(cerr));
@@ -1864,14 +1871,15 @@ void x_stopwatch_cu::toc(const char* unit, const bool echo)
 }
 
 x_swstats x_stopwatch_cu::toc(
-    const char* unit, const size_t cycle, const char* title, const bool echo)
+    const char* unit, const size_t cycle, const char* title, const bool echo,
+    cudaStream_t const stream, const unsigned int flags)
 {
   if (cycle == 0) {
     this->m_stats.reset();
     return this->m_stats;
   }
 
-  this->toc(unit, false);
+  this->toc(unit, false, stream, flags);
 
   if (this->m_elapsed > this->m_stats.max.val) {
     this->m_stats.max.idx = this->m_stats.cyc;
@@ -2213,19 +2221,19 @@ X_INL x_err x_split_path(
     root[sz] = '\0';
 
     if (end == nullptr) {
-      return err;
+      return x_err();
     }
   }
 
   // dir
   begin = strchr(end, '/');
   if (begin == nullptr) {
-    return err;
+    return x_err();
   }
 
   end = strrchr((char*)path, '/');
   if (end <= begin) {
-    return err;
+    return x_err();
   }
   if (end == nullptr) {
     end = full + psz;
@@ -2241,19 +2249,19 @@ X_INL x_err x_split_path(
     dir[sz] = '\0';
 
     if (end == nullptr) {
-      return err;
+      return x_err();
     }
   }
 
   // file
   begin = end + 1;
   if ((begin - full) >= 0) {
-    return err;
+    return x_err();
   }
 
   end = strrchr((char*)path, '.');
   if (end <= begin) {
-    return err;
+    return x_err();
   }
   if (end == nullptr) {
     end = full + psz;
@@ -2274,7 +2282,7 @@ X_INL x_err x_split_path(
     begin = end;
     end = full + psz;
     if (end <= begin) {
-      return err;
+      return x_err();
     }
 
     sz = end - begin;
@@ -2282,7 +2290,7 @@ X_INL x_err x_split_path(
     ext[sz] = '\0';
   }
 
-  return err;
+  return x_err();
 #endif
 }
 // IMPL_File_System}}}
@@ -2318,37 +2326,37 @@ X_INL size_t x_ngpu()
 
 //********************************************************* IMPL_Mathematics{{{
 template<typename T>
-X_INL consteval T x_KiB(const T n)
+X_INL constexpr T x_KiB(const T n)
 {
   return n * static_cast<T>(1024);
 }
 
 template<typename T>
-X_INL consteval T x_MiB(const T n)
+X_INL constexpr T x_MiB(const T n)
 {
   return n * static_cast<T>(1048576);
 }
 
 template<typename T>
-X_INL consteval T x_GiB(const T n)
+X_INL constexpr T x_GiB(const T n)
 {
   return n * static_cast<T>(1073741824);
 }
 
 template<typename T>
-X_INL consteval T x_TiB(const T n)
+X_INL constexpr T x_TiB(const T n)
 {
   return n * static_cast<T>(1099511627776);
 }
 
 template<typename T>
-X_INL consteval T x_PiB(const T n)
+X_INL constexpr T x_PiB(const T n)
 {
   return n * static_cast<T>(1125899906842620);
 }
 
 template<typename T>
-X_INL consteval typename std::enable_if<std::is_integral_v<T>, T>::type
+X_INL constexpr typename std::enable_if<std::is_integral_v<T>, T>::type
 x_bit(const T n)
 {
   return static_cast<T>(1) << n;
@@ -2485,7 +2493,7 @@ X_INL void x_free(T*& ptr)
 template<typename T>
 X_INL void x_free(volatile T*& ptr)
 {
-  x_free<T>(const_cast<T*>(ptr));
+  x_free<T>(const_cast<T*&>(ptr));
 }
 
 template<typename T>
@@ -2566,7 +2574,7 @@ X_INL void x_free_cu(T*& ptr)
 template<typename T>
 X_INL void x_free_cu(volatile T*& ptr)
 {
-  x_free_cu<T>(const_cast<T*>(ptr));
+  x_free_cu<T>(const_cast<T*&>(ptr));
 }
 
 template<typename T>
@@ -2704,18 +2712,15 @@ X_INL void _x_log_impl(
   char prefix[X_LOG_PREFIX_LIMIT]{0};
   _x_log_prefix<level>(prefix, X_LOG_PREFIX_LIMIT, filename, function, line);
 
-#if (X_CLANG >= x_ver(17, 0, 0)) || (X_GCC >= x_ver(13, 0, 0)) || (X_MSVC >= x_ver(19, 29, 0))
+#if (__cplusplus >= 202002L && (X_CLANG >= x_ver(17, 0, 0)) || (X_GCC >= x_ver(13, 0, 0)) || (X_MSVC >= x_ver(19, 29, 0)))
   std::string fmsg = std::vformat(format, std::make_format_args(args...));
 
   // NOTE: Cover the case that there are no `{}`s in `format`.
   char msg[X_LOG_MSG_LIMIT]{0};
   snprintf(msg, X_LOG_MSG_LIMIT, fmsg.c_str(), std::forward<Args>(args)...);
 #else
-  char msg[X_LOG_MSG_LIMIT] = {0};
-  va_list args;
-  va_start(args, format);
-  vsnprintf(msg, X_LOG_MSG_LIMIT, format, args);
-  va_end(args);
+  char msg[X_LOG_MSG_LIMIT]{0};
+  snprintf(msg, X_LOG_MSG_LIMIT, format, std::forward<Args>(args)...);
 #endif
 
   if (file == nullptr || file == stdout || file == stderr) {
