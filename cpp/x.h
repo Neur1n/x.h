@@ -11,7 +11,7 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-05-30 14:52
+Last update: 2024-06-04 14:40
 Version: v0.7.0
 ******************************************************************************/
 #ifndef X_H
@@ -28,6 +28,9 @@ Version: v0.7.0
  * Platform Detection
  *
  * Headers
+ *
+ * Symbol Visibility
+ * Miscellaneous
  *
  * Communication
  * Console IO
@@ -312,8 +315,11 @@ Version: v0.7.0
 #endif
 
 /// @brief This is provided to align with the C version of this library.
+#define X_EXC extern "C"
 #define X_INL inline
 /** @} */  // Miscellaneous
+
+class x_err;
 
 /******************************************************************************
  * @name Communication
@@ -415,6 +421,8 @@ public:
   X_INL x_err accept(x_skt* client);
 
   /// @brief Query the IP address and port of the socket.
+  /// @param ip The buffer to store the IP address.
+  /// @param port The buffer to store the port.
   /// @return An instance of @ref x_err.
   X_INL x_err addr(char* ip, uint16_t* port);
 
@@ -461,7 +469,7 @@ public:
 
   /// @brief Vectored version of `send`.
   /// @return An instance of @ref x_err.
-  /// @see @ref x_skt::recv
+  /// @see @ref x_skt::send
   X_INL x_err sendv(const x_iov* iov, const size_t count, const int flags);
 
   /// @brief Wrapper of `setsockopt` with error handling.
@@ -683,8 +691,6 @@ private:
  * @brief A collection of error handling utilities.
  * @{
  *****************************************************************************/
-class x_err;
-
 /// @brief Assertion with optional message.
 /// @param expr The expression to assert.
 /// @param ... The optional message to print.
