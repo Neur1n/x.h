@@ -16,7 +16,7 @@ int main(int argc, char** argv)
   *ptr = x_Pi<double>;
   x_log('i', nullptr, "%f", *ptr);
 
-  x_free(&ptr);
+  x_free(ptr);
 
   err = x_malloc(&ptr, sizeof(double));
   if (err) {
