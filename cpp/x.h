@@ -11,7 +11,7 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-06-11 16:00
+Last update: 2024-06-14 10:00
 Version: v0.7.0
 ******************************************************************************/
 #ifndef X_H
@@ -565,41 +565,38 @@ X_INL void x_sleep(const unsigned long ms);
 ///         26 bytes is guaranteed to store the timestamp.
 X_INL const char* x_timestamp(char* buf, const size_t bsz);
 
-/// @struct x_swstats
+/// @struct x_stopwatch_stats
 /// @brief A structure to store the statistics of a stopwatch.
-/// @var x_swstats::ready
+/// @var x_stopwatch_stats::ready
 ///      Whether the stopwatch is ready.
-/// @var x_swstats::cyc
+/// @var x_stopwatch_stats::cyc
 ///      The number of cycles.
-/// @var x_swstats::sum
+/// @var x_stopwatch_stats::sum
 ///      The total elapsed time.
-/// @var x_swstats::avg
+/// @var x_stopwatch_stats::avg
 ///      The average elapsed time.
-/// @var x_swstats::max
+/// @var x_stopwatch_stats::max
 ///      The frame that captures the maximum elapsed time.
-/// @var x_swstats::min
+/// @var x_stopwatch_stats::min
 ///      The frame that captures the minimum elapsed time.
-typedef struct _x_swstats_
+typedef struct _x_stopwatch_stats_
 {
   /// @brief Constructor.
-  _x_swstats_()
-  {
-    this->reset();
-  }
+  X_INL _x_stopwatch_stats_();
+
+  /// @brief Echo the statistics in a predefined format.
+  /// @param title The title for the statistics. Default is "STATS". If the
+  ///              title is not a valid string, "STATS" will be used.
+  /// @param stream The output stream. Default is `stdout`.
+  /// @remark This helper function provides a handy way to print the
+  ///         statistics. Users may use their own format to print the
+  ///         statistics with the data members of this structure.
+  X_INL void echo(const char* title = "STATS", FILE* const stream = stdout);
 
   /// @brief Reset the statistics.
-  void reset()
-  {
-    this->ready = false;
-    this->cyc = 0;
-    this->sum = 0.0;
-    this->avg = 0.0;
-    this->max.idx = 0;
-    this->max.val = DBL_MIN;
-    this->min.idx = 0;
-    this->min.val = DBL_MAX;
-  }
+  X_INL void reset();
 
+  char unit[2];
   bool ready;
   size_t cyc;
   double sum;
@@ -609,7 +606,7 @@ typedef struct _x_swstats_
     size_t idx;
     double val;
   } max, min;
-} x_swstats;
+} x_stopwatch_stats;
 
 /// @brief A stopwatch class.
 class x_stopwatch
@@ -628,29 +625,23 @@ public:
   X_INL void reset();
 
   /// @brief Start the stopwatch.
-  /// @param echo Whether to print the message.
-  X_INL void tic(const bool echo = false);
+  X_INL void tic();
 
   /// @brief Stop the stopwatch.
   /// @param unit The unit of the elapsed time, "h", "m", "s", "ms", "us", or
   ///             "ns".
-  /// @param echo Whether to print the message.
-  X_INL void toc(const char* unit, const bool echo = false);
+  X_INL void toc(const char* unit);
 
   /// @brief Stop the stopwatch and return the statistics.
+  /// @param stats The statistics of the stopwatch.
   /// @param unit The unit of the elapsed time, "h", "m", "s", "ms", "us", or
   ///             "ns".
   /// @param cycle The number of cycles.
-  /// @param title The title of the statistic message.
-  /// @param echo Whether to print the message.
-  /// @return The statistics of the stopwatch.
-  X_INL x_swstats toc(
-      const char* unit, const size_t cycle, const char* title = "",
-      const bool echo = false);
+  X_INL void toc(
+      x_stopwatch_stats& stats, const char* unit, const size_t cycle);
 
 private:
   struct timespec m_start{0};
-  x_swstats m_stats;
   double m_elapsed{0.0};
 };
 
@@ -674,18 +665,16 @@ public:
   X_INL void reset();
 
   X_INL void tic(
-      const bool echo = false,
       cudaStream_t const stream = nullptr,
       const unsigned int flags = cudaEventDefault);
 
   X_INL void toc(
-      const char* unit, const bool echo = false,
+      const char* unit,
       cudaStream_t const stream = nullptr,
       const unsigned int flags = cudaEventDefault);
 
-  X_INL x_swstats toc(
-      const char* unit, const size_t cycle, const char* title = "",
-      const bool echo = false,
+  X_INL void toc(
+      x_stopwatch_stats& stats, const char* unit, const size_t cycle,
       cudaStream_t const stream = nullptr,
       const unsigned int flags = cudaEventDefault);
 
@@ -693,7 +682,6 @@ private:
   cudaEvent_t m_start{nullptr};
   cudaEvent_t m_stop{nullptr};
   double m_elapsed{0.0};
-  x_swstats m_stats;
 };
 #endif
 /** @} */  // Date and Time
@@ -1658,6 +1646,48 @@ X_INL const char* x_timestamp(char* buf, const size_t bsz)
   return buf;
 }
 
+// class _x_swstas_{{{
+X_INL x_stopwatch_stats::_x_stopwatch_stats_()
+{
+  this->reset();
+}
+
+X_INL void x_stopwatch_stats::echo(const char* title,FILE* const stream)
+{
+  const char* t = x_strmty(title) ? "STATS" : title;
+  std::string u(this->unit);
+  std::string msg(128, '\0');
+
+  msg = std::string("[") + t + std::string("] ")
+    + std::to_string(this->sum) + u + " in "
+    + std::to_string(this->cyc) + " cycles - avg: "
+    + std::to_string(this->avg) + u + ", min("
+    + std::to_string(this->min.idx) + "): "
+    + std::to_string(this->min.val) + u + ", max("
+    + std::to_string(this->max.idx) + "): "
+    + std::to_string(this->max.val) + u;
+
+  if (stream == nullptr) {
+    fprintf(stdout, "%s\n", msg.c_str());
+  } else {
+    fprintf(stream, "%s\n", msg.c_str());
+  }
+}
+
+X_INL void x_stopwatch_stats::reset()
+{
+  this->unit[0] = '\0';
+  this->ready = false;
+  this->cyc = 0;
+  this->sum = 0.0;
+  this->avg = 0.0;
+  this->max.idx = 0;
+  this->max.val = DBL_MIN;
+  this->min.idx = 0;
+  this->min.val = DBL_MAX;
+}
+// struct _x_swstats_}}}
+
 // class x_stopwatch{{{
 x_stopwatch::x_stopwatch()
 {
@@ -1674,76 +1704,56 @@ double x_stopwatch::elapsed() const
 
 void x_stopwatch::reset()
 {
-  this->m_stats.reset();
   this->m_elapsed = 0.0;
 }
 
-void x_stopwatch::tic(const bool echo)
+void x_stopwatch::tic()
 {
   this->m_start = x_now();
-
-  if (echo) {
-    char ts[26]{0};
-    printf("Stopwatch starts at: %s.\n", x_timestamp(ts, x_count(ts)));
-  }
 }
 
-void x_stopwatch::toc(const char* unit, const bool echo)
+void x_stopwatch::toc(const char* unit)
 {
   this->m_elapsed = x_duration(unit, this->m_start, x_now());
-
-  if (echo) {
-    char ts[26]{0};
-    printf("Stopwatch stops at: %s (%f%s elapsed).\n",
-        x_timestamp(ts, x_count(ts)), this->m_elapsed, unit);
-  }
 }
 
-x_swstats x_stopwatch::toc(
-    const char* unit, const size_t cycle, const char* title, const bool echo)
+void x_stopwatch::toc(
+    x_stopwatch_stats& stats, const char* unit, const size_t cycle)
 {
   if (cycle == 0) {
-    this->m_stats.reset();
-    return this->m_stats;
+    stats.reset();
+    return;
   }
 
-  this->toc(unit, false);
-
-  if (this->m_elapsed > this->m_stats.max.val) {
-    this->m_stats.max.idx = this->m_stats.cyc;
-    this->m_stats.max.val = this->m_elapsed;
-  }
-  if (this->m_elapsed < this->m_stats.min.val) {
-    this->m_stats.min.idx = this->m_stats.cyc;
-    this->m_stats.min.val = this->m_elapsed;
+  // NOTE: If the statistics are ready, do not update them.
+  if (stats.ready) {
+    return;
   }
 
-  this->m_stats.sum += this->m_elapsed;
-  this->m_stats.cyc += 1;
-  this->m_stats.avg = this->m_stats.sum / this->m_stats.cyc;
-
-  if (this->m_stats.cyc % cycle == 0) {
-    this->m_stats.ready = true;
-
-    const char* t = x_strmty(title) ? "STATS" : title;
-
-    std::string msg(128, '\0');
-
-    msg = std::string("[") + t + std::string("] ")
-      + std::to_string(this->m_stats.sum) + unit + " in "
-      + std::to_string(this->m_stats.cyc) + " cycles - avg: "
-      + std::to_string(this->m_stats.avg) + unit + ", min("
-      + std::to_string(this->m_stats.min.idx) + "): "
-      + std::to_string(this->m_stats.min.val) + unit + ", max("
-      + std::to_string(this->m_stats.max.idx) + "): "
-      + std::to_string(this->m_stats.max.val) + unit;
-
-    if (echo) {
-      printf("%s\n", msg.c_str());
-    }
+  // NOTE: Reset the stats before the first cycle.
+  if (stats.cyc == 0) {
+    stats.reset();
+    x_strcpy(stats.unit, sizeof(stats.unit), unit);
   }
 
-  return this->m_stats;
+  this->toc(unit);
+
+  if (this->m_elapsed > stats.max.val) {
+    stats.max.idx = stats.cyc;
+    stats.max.val = this->m_elapsed;
+  }
+  if (this->m_elapsed < stats.min.val) {
+    stats.min.idx = stats.cyc;
+    stats.min.val = this->m_elapsed;
+  }
+
+  stats.sum += this->m_elapsed;
+  stats.cyc += 1;
+  stats.avg = stats.sum / stats.cyc;
+
+  if (stats.cyc % cycle == 0) {
+    stats.ready = true;
+  }
 }
 // class x_stopwatch}}}
 
@@ -1808,28 +1818,20 @@ double x_stopwatch_cu::elapsed() const
 
 void x_stopwatch_cu::reset()
 {
-  this->m_stats.reset();
   this->m_elapsed = 0.0;
 }
 
-void x_stopwatch_cu::tic(
-    const bool echo, cudaStream_t const stream, const unsigned int flags)
+void x_stopwatch_cu::tic(cudaStream_t const stream, const unsigned int flags)
 {
   cudaError_t cerr = cudaEventRecordWithFlags(this->m_start, stream, flags);
   if (cerr != cudaSuccess) {
     throw std::runtime_error(
         std::string("cudaEventRecord: ") + cudaGetErrorString(cerr));
   }
-
-  if (echo) {
-    char ts[26]{0};
-    printf("Stopwatch starts at: %s.\n", x_timestamp(ts, x_count(ts)));
-  }
 }
 
 void x_stopwatch_cu::toc(
-    const char* unit, const bool echo,
-    cudaStream_t const stream, const unsigned int flags)
+    const char* unit, cudaStream_t const stream, const unsigned int flags)
 {
   cudaError_t cerr = cudaEventRecordWithFlags(this->m_stop, stream, flags);
   if (cerr != cudaSuccess) {
@@ -1862,60 +1864,46 @@ void x_stopwatch_cu::toc(
     elapsed *= 1000000.0f;
   }
   this->m_elapsed = static_cast<double>(elapsed);
-
-  if (echo) {
-    char ts[26]{0};
-    printf("Stopwatch stops at: %s (%f%s elapsed).\n",
-        x_timestamp(ts, x_count(ts)), this->m_elapsed, unit);
-  }
 }
 
-x_swstats x_stopwatch_cu::toc(
-    const char* unit, const size_t cycle, const char* title, const bool echo,
+void x_stopwatch_cu::toc(
+    x_stopwatch_stats& stats, const char* unit, const size_t cycle,
     cudaStream_t const stream, const unsigned int flags)
 {
   if (cycle == 0) {
-    this->m_stats.reset();
-    return this->m_stats;
+    stats.reset();
+    return;
   }
 
-  this->toc(unit, false, stream, flags);
-
-  if (this->m_elapsed > this->m_stats.max.val) {
-    this->m_stats.max.idx = this->m_stats.cyc;
-    this->m_stats.max.val = this->m_elapsed;
-  }
-  if (this->m_elapsed < this->m_stats.min.val) {
-    this->m_stats.min.idx = this->m_stats.cyc;
-    this->m_stats.min.val = this->m_elapsed;
+  // NOTE: If the statistics are ready, do not update them.
+  if (stats.ready) {
+    return;
   }
 
-  this->m_stats.sum += this->m_elapsed;
-  this->m_stats.cyc += 1;
-  this->m_stats.avg = this->m_stats.sum / this->m_stats.cyc;
-
-  if (this->m_stats.cyc % cycle == 0) {
-    this->m_stats.ready = true;
-
-    if (echo) {
-      const char* t = x_strmty(title) ? "STATS" : title;
-
-      std::string msg(128, '\0');
-
-      msg = std::string("[") + t + std::string("] ")
-        + std::to_string(this->m_stats.sum) + unit + " in "
-        + std::to_string(this->m_stats.cyc) + " cycles - avg: "
-        + std::to_string(this->m_stats.avg) + unit + ", min("
-        + std::to_string(this->m_stats.min.idx) + "): "
-        + std::to_string(this->m_stats.min.val) + unit + ", max("
-        + std::to_string(this->m_stats.max.idx) + "): "
-        + std::to_string(this->m_stats.max.val) + unit;
-
-      printf("%s\n", msg.c_str());
-    }
+  // NOTE: Reset the stats before the first cycle.
+  if (stats.cyc == 0) {
+    stats.reset();
+    x_strcpy(stats.unit, sizeof(stats.unit), unit);
   }
 
-  return this->m_stats;
+  this->toc(unit, stream, flags);
+
+  if (this->m_elapsed > stats.max.val) {
+    stats.max.idx = stats.cyc;
+    stats.max.val = this->m_elapsed;
+  }
+  if (this->m_elapsed < stats.min.val) {
+    stats.min.idx = stats.cyc;
+    stats.min.val = this->m_elapsed;
+  }
+
+  stats.sum += this->m_elapsed;
+  stats.cyc += 1;
+  stats.avg = stats.sum / stats.cyc;
+
+  if (stats.cyc % cycle == 0) {
+    stats.ready = true;
+  }
 }
 // class x_stopwatch_cu}}}
 #endif
