@@ -11,7 +11,7 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-06-14 10:00
+Last update: 2024-06-25 15:37
 Version: v0.7.0
 ******************************************************************************/
 #ifndef X_H
@@ -229,7 +229,7 @@ Version: v0.7.0
 #include <cstring>
 #include <ctime>
 
-#if (__cplusplus >= 202002L && (X_CLANG >= x_ver(17, 0, 0)) || (X_GCC >= x_ver(13, 0, 0)) || (X_MSVC >= x_ver(19, 29, 0)))
+#if (__cplusplus >= 202002L && (X_CLANG >= x_ver(17, 0, 0) || X_GCC >= x_ver(13, 0, 0) || X_MSVC >= x_ver(19, 29, 0)))
 #include <format>
 #endif
 #include <stdexcept>
@@ -2700,7 +2700,7 @@ X_INL void _x_log_impl(
   char prefix[X_LOG_PREFIX_LIMIT]{0};
   _x_log_prefix<level>(prefix, X_LOG_PREFIX_LIMIT, filename, function, line);
 
-#if (__cplusplus >= 202002L && (X_CLANG >= x_ver(17, 0, 0)) || (X_GCC >= x_ver(13, 0, 0)) || (X_MSVC >= x_ver(19, 29, 0)))
+#if (__cplusplus >= 202002L && (X_CLANG >= x_ver(17, 0, 0) || X_GCC >= x_ver(13, 0, 0) || X_MSVC >= x_ver(19, 29, 0)))
   std::string fmsg = std::vformat(format, std::make_format_args(args...));
 
   // NOTE: Cover the case that there are no `{}`s in `format`.
