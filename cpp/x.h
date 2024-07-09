@@ -11,7 +11,7 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-06-25 15:37
+Last update: 2024-07-08 17:15
 Version: v0.7.0
 ******************************************************************************/
 #ifndef X_H
@@ -1974,7 +1974,7 @@ const char* x_err::msg()
           | FORMAT_MESSAGE_MAX_WIDTH_MASK,
           nullptr, static_cast<DWORD>(this->m_val),
           MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
-          this->m_msg.data(), this->m_msg.size(), nullptr);
+          this->m_msg.data(), static_cast<DWORD>(this->m_msg.size()), nullptr);
       break;
 #else
     case x_err_posix:
