@@ -11,7 +11,7 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-07-08 17:15
+Last update: 2024-08-19 16:02
 Version: v0.7.0
 ******************************************************************************/
 #ifndef X_H
@@ -1013,7 +1013,7 @@ X_INL constexpr size_t x_count(const T (&array)[N]);
 ///        `nullptr`.
 /// @tparam array Whether the pointer is allocated by `new[]`.
 /// @param ptr The pointer to delete.
-template<typename T, bool array = false>
+template<bool array, typename T>
 X_INL void x_delete(T*& ptr);
 
 /// @brief Free a memory block allocated on the heap and set it to `nullptr`.
@@ -2456,7 +2456,7 @@ X_INL constexpr size_t x_count(const T (&array)[N])
   return N;
 }
 
-template<typename T, bool array>
+template<bool array, typename T>
 X_INL void x_delete(T*& ptr)
 {
   if (ptr != nullptr) {
