@@ -11,11 +11,11 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-10-14 10:27
-Version: v0.7.1
+Last update: 2024-10-14 19:15
+Version: v0.8.0
 ******************************************************************************/
 #ifndef X_H
-#define X_H x_ver(0, 7, 1)
+#define X_H x_ver(0, 8, 0)
 
 
 /** @internal
@@ -70,6 +70,16 @@ Version: v0.7.1
  * @name Feature Configuration
  * @{
  *****************************************************************************/
+/// @brief Toggle the availability of CUDA driver API related functions.
+/// @remark The `_CU` suffix follows the naming convention of the CUDA driver
+///         API's prefix `cu`.
+#ifndef X_ENABLE_CU
+#define X_ENABLE_CU (0)
+#endif
+
+/// @brief Toggle the availability of CUDA runtime API related functions.
+/// @remark The `_CUDA` suffix follows the naming convention of the CUDA
+///         runtime API's prefix `cuda`.
 #ifndef X_ENABLE_CUDA
 #define X_ENABLE_CUDA (0)
 #endif
@@ -237,6 +247,10 @@ Version: v0.7.1
 
 #include <fcntl.h>
 #include <sys/stat.h>
+
+#if X_ENABLE_CU
+#include <cuda.h>
+#endif
 
 #if X_ENABLE_CUDA
 #include <cuda_runtime.h>
@@ -645,10 +659,48 @@ private:
   double m_elapsed{0.0};
 };
 
+#if X_ENABLE_CU
+/// @brief Calculate the duration between two CUDA driver events.
+X_INL double x_duration(
+    const char* unit, const CUevent start, const CUevent stop);
+
+/// @brief CUDA driver version of @ref x_stopwatch.
+/// @see @ref x_stopwatch
+class x_stopwatch_cu
+{
+public:
+  X_INL x_stopwatch_cu(const unsigned int flags = CU_EVENT_DEFAULT);
+
+  X_INL ~x_stopwatch_cu();
+
+  X_INL double elapsed() const;
+
+  X_INL void reset();
+
+  X_INL void tic(
+      CUstream const stream = 0,
+      const unsigned int flags = CU_EVENT_RECORD_DEFAULT);
+
+  X_INL void toc(
+      const char* unit,
+      CUstream const stream = 0,
+      const unsigned int flags = CU_EVENT_RECORD_DEFAULT);
+
+  X_INL void toc(
+      x_stopwatch_stats& stats, const char* unit, const size_t cycle,
+      CUstream const stream = 0,
+      const unsigned int flags = CU_EVENT_RECORD_DEFAULT);
+
+private:
+  CUevent m_start{nullptr};
+  CUevent m_stop{nullptr};
+  double m_elapsed{0.0};
+};
+#endif  // X_ENABLE_CU
+
 #if X_ENABLE_CUDA
-/// @brief CUDA version of @ref x_duration.
-/// @see @ref x_duration
-X_INL double x_duration_cuda(
+/// @brief Calculate the duration between two CUDA runtime events.
+X_INL double x_duration(
     const char* unit, const cudaEvent_t start, const cudaEvent_t stop);
 
 /// @brief CUDA runtime version of @ref x_stopwatch.
@@ -683,7 +735,7 @@ private:
   cudaEvent_t m_stop{nullptr};
   double m_elapsed{0.0};
 };
-#endif
+#endif  // X_ENABLE_CUDA
 /** @} */  // Date and Time
 
 /******************************************************************************
@@ -729,6 +781,8 @@ X_INL bool x_succ(const x_err& err);
 /// @var x_err_socket
 ///      Socket error that is set by `errno` on Linux or returned by
 ///      `WSAGetLastError` on Windows.
+/// @var x_err_cu
+///      CUDA error that is set by the CUDA driver API.
 /// @var x_err_cuda
 ///      CUDA error that is set by the CUDA runtime API.
 /// @attention The x_err_cuda is only available when `X_ENABLE_CUDA` is set to
@@ -744,8 +798,11 @@ enum
   x_err_posix  = 1,
   x_err_win32  = 2,
   x_err_socket = 3,
+#if X_ENABLE_CU
+  x_err_cu     = 4,
+#endif
 #if X_ENABLE_CUDA
-  x_err_cuda   = 4,
+  x_err_cuda   = 5,
 #endif
   x_err_max,
 #if X_WINDOWS
@@ -1757,6 +1814,207 @@ void x_stopwatch::toc(
 }
 // class x_stopwatch}}}
 
+#if X_ENABLE_CU
+X_INL double x_duration(
+    const char* unit, const CUevent start, const CUevent stop)
+{
+  const char* msg{nullptr};
+
+  CUresult cres = cuEventSynchronize(stop);
+  if (cres != CUDA_SUCCESS) {
+    cres = cuGetErrorString(cres, &msg);
+    if (cres != CUDA_SUCCESS) {
+      cuGetErrorString(cres, &msg);
+      fprintf(stderr, "cuGetErrorString: %s\n", msg);
+    } else {
+      fprintf(stderr, "cuEventSynchronize: %s\n", msg);
+    }
+    return -1.0;
+  }
+
+  float ms{0.0f};
+  cres = cuEventElapsedTime(&ms, start, stop);
+  if (cres != CUDA_SUCCESS) {
+    cres = cuGetErrorString(cres, &msg);
+    if (cres != CUDA_SUCCESS) {
+      cuGetErrorString(cres, &msg);
+      fprintf(stderr, "cuGetErrorString: %s\n", msg);
+    } else {
+      fprintf(stderr, "cuEventElapsedTime: %s\n", msg);
+    }
+    return -1.0;
+  }
+
+  if (strcmp(unit, "h") == 0) {
+    return static_cast<double>(ms) / 3600000.0;
+  } else if (strcmp(unit, "m") == 0) {
+    return static_cast<double>(ms) / 60000.0;
+  } else if (strcmp(unit, "s") == 0) {
+    return static_cast<double>(ms) / 1000.0;
+  } else if (strcmp(unit, "ms") == 0) {
+    return static_cast<double>(ms);
+  } else if (strcmp(unit, "us") == 0) {
+    return static_cast<double>(ms) * 1000.0;
+  } else { // if (strcmp(unit, "ns") == 0)
+    return static_cast<double>(ms) * 1000000;
+  }
+}
+
+// class x_stopwatch_cu{{{
+X_INL x_stopwatch_cu::x_stopwatch_cu(const unsigned int flags)
+{
+  const char* msg{nullptr};
+
+  CUresult cres = cuEventCreate(&this->m_start, flags);
+  if (cres != CUDA_SUCCESS) {
+    cres = cuGetErrorString(cres, &msg);
+    if (cres != CUDA_SUCCESS) {
+      cuGetErrorString(cres, &msg);
+      throw std::runtime_error(std::string("cuGetErrorString: ") + msg);
+    } else {
+      throw std::runtime_error(std::string("cuEventCreate: ") + msg);
+    }
+  }
+
+  cres = cuEventCreate(&this->m_stop, flags);
+  if (cres != CUDA_SUCCESS) {
+    cres = cuGetErrorString(cres, &msg);
+    if (cres != CUDA_SUCCESS) {
+      cuGetErrorString(cres, &msg);
+      throw std::runtime_error(std::string("cuGetErrorString: ") + msg);
+    } else {
+      throw std::runtime_error(std::string("cuEventCreate: ") + msg);
+    }
+  }
+}
+
+X_INL x_stopwatch_cu::~x_stopwatch_cu()
+{
+  cuEventDestroy(this->m_start);
+  cuEventDestroy(this->m_stop);
+}
+
+X_INL double x_stopwatch_cu::elapsed() const
+{
+  return this->m_elapsed;
+}
+
+X_INL void x_stopwatch_cu::reset()
+{
+  this->m_elapsed = 0.0;
+}
+
+X_INL void x_stopwatch_cu::tic(CUstream const stream, const unsigned int flags)
+{
+  const char* msg{nullptr};
+
+  CUresult cres = cuEventRecordWithFlags(this->m_start, stream, flags);
+  if (cres != CUDA_SUCCESS) {
+    cres = cuGetErrorString(cres, &msg);
+    if (cres != CUDA_SUCCESS) {
+      cuGetErrorString(cres, &msg);
+      throw std::runtime_error(std::string("cuGetErrorString: ") + msg);
+    } else {
+      throw std::runtime_error(std::string("cuEventRecordWithFlags: ") + msg);
+    }
+  }
+}
+
+X_INL void x_stopwatch_cu::toc(
+    const char* unit, CUstream const stream, const unsigned int flags)
+{
+  const char* msg{nullptr};
+
+  CUresult cres = cuEventRecordWithFlags(this->m_stop, stream, flags);
+  if (cres != CUDA_SUCCESS) {
+    cres = cuGetErrorString(cres, &msg);
+    if (cres != CUDA_SUCCESS) {
+      cuGetErrorString(cres, &msg);
+      throw std::runtime_error(std::string("cuGetErrorString: ") + msg);
+    } else {
+      throw std::runtime_error(std::string("cuEventRecordWithFlags: ") + msg);
+    }
+  }
+
+  cres = cuEventSynchronize(this->m_stop);
+  if (cres != CUDA_SUCCESS) {
+    cres = cuGetErrorString(cres, &msg);
+    if (cres != CUDA_SUCCESS) {
+      cuGetErrorString(cres, &msg);
+      throw std::runtime_error(std::string("cuGetErrorString: ") + msg);
+    } else {
+      throw std::runtime_error(std::string("cuEventSynchronize: ") + msg);
+    }
+  }
+
+  float elapsed{0.0f};
+  cres = cuEventElapsedTime(&elapsed, this->m_start, this->m_stop);
+  if (cres != CUDA_SUCCESS) {
+    cres = cuGetErrorString(cres, &msg);
+    if (cres != CUDA_SUCCESS) {
+      cuGetErrorString(cres, &msg);
+      throw std::runtime_error(std::string("cuGetErrorString: ") + msg);
+    } else {
+      throw std::runtime_error(std::string("cuEventElapsedTime: ") + msg);
+    }
+  }
+
+  if (strcmp(unit, "h") == 0) {
+    elapsed /= 3600000.0f;
+  } else if (strcmp(unit, "m") == 0) {
+    elapsed /= 60000.0f;
+  } else if (strcmp(unit, "s") == 0) {
+    elapsed /= 1000.0f;
+  } else if (strcmp(unit, "us") == 0) {
+    elapsed *= 1000.0f;
+  } else if (strcmp(unit, "ns") == 0) {
+    elapsed *= 1000000.0f;
+  }
+  this->m_elapsed = static_cast<double>(elapsed);
+}
+
+X_INL void x_stopwatch_cu::toc(
+    x_stopwatch_stats& stats, const char* unit, const size_t cycle,
+    CUstream const stream, const unsigned int flags)
+{
+  if (cycle == 0) {
+    stats.reset();
+    return;
+  }
+
+  // NOTE: If the statistics are ready, do not update them.
+  if (stats.ready) {
+    return;
+  }
+
+  // NOTE: Reset the stats before the first cycle.
+  if (stats.cyc == 0) {
+    stats.reset();
+    x_strcpy(stats.unit, sizeof(stats.unit), unit);
+  }
+
+  this->toc(unit, stream, flags);
+
+  if (this->m_elapsed > stats.max.val) {
+    stats.max.idx = stats.cyc;
+    stats.max.val = this->m_elapsed;
+  }
+  if (this->m_elapsed < stats.min.val) {
+    stats.min.idx = stats.cyc;
+    stats.min.val = this->m_elapsed;
+  }
+
+  stats.sum += this->m_elapsed;
+  stats.cyc += 1;
+  stats.avg = stats.sum / stats.cyc;
+
+  if (stats.cyc % cycle == 0) {
+    stats.ready = true;
+  }
+}
+// class x_stopwatch_cu}}}
+#endif  // X_ENABLE_CU
+
 #if X_ENABLE_CUDA
 X_INL double x_duration_cuda(
     const char* unit, const cudaEvent_t start, const cudaEvent_t stop)
@@ -1789,7 +2047,7 @@ X_INL double x_duration_cuda(
   }
 }
 
-// class x_stopwatch_cu{{{
+// class x_stopwatch_cuda{{{
 x_stopwatch_cuda::x_stopwatch_cuda(const unsigned int flags)
 {
   cudaError_t cerr = cudaEventCreateWithFlags(&this->m_start, flags);
@@ -1905,7 +2163,7 @@ void x_stopwatch_cuda::toc(
     stats.ready = true;
   }
 }
-// class x_stopwatch_cu}}}
+// class x_stopwatch_cuda}}}
 #endif
 // IMPL_Date_and_Time}}}
 
@@ -1979,6 +2237,20 @@ const char* x_err::msg()
 #else
     case x_err_posix:
       this->m_msg = strerror(static_cast<int>(this->m_val));
+      break;
+#endif
+#if X_ENABLE_CU
+    case x_err_cu:
+      {
+        const char* msg{nullptr};
+        CUresult cres = cuGetErrorString(static_cast<CUresult>(this->m_val), &msg);
+        if (cres != CUDA_SUCCESS) {
+          cuGetErrorString(cres, &msg);
+          this->m_msg = std::string("cuGetErrorString: ") + std::string(msg);
+        } else {
+          this->m_msg = msg;
+        }
+      }
       break;
 #endif
 #if X_ENABLE_CUDA
@@ -2086,6 +2358,10 @@ x_err::operator bool() const
       case x_err_socket:
         return this->m_val != 0;
 #endif
+#endif
+#if X_ENABLE_CU
+      case x_err_cu:
+        return static_cast<CUresult>(this->m_val) != CUDA_SUCCESS;
 #endif
 #if X_ENABLE_CUDA
       case x_err_cuda:
