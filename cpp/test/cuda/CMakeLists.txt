@@ -11,9 +11,14 @@ SET(CMAKE_CXX_STANDARD_REQUIRED ON)
 SET(CUDA_ARCHITECTURES 89)  # Testing on 4060
 
 ADD_COMPILE_DEFINITIONS(X_ENABLE_CUDA=1)
-
 ADD_COMPILE_DEFINITIONS(X_ENABLE_SOCKET=1)
 
-ADD_EXECUTABLE(test_x_err_cu test_x_err.cu)
-ADD_EXECUTABLE(test_x_mem_cu test_x_mem.cu)
-ADD_EXECUTABLE(test_x_timing_cu test_x_timing.cu)
+SET(TEST_TARGETS
+  test_x_err
+  test_x_mem
+  test_x_stopwatch
+)
+
+FOREACH(TARGET ${TEST_TARGETS})
+  ADD_EXECUTABLE(${TARGET} ${TARGET}.cu)
+ENDFOREACH()

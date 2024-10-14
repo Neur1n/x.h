@@ -11,11 +11,11 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-08-19 16:02
-Version: v0.7.0
+Last update: 2024-10-14 10:27
+Version: v0.7.1
 ******************************************************************************/
 #ifndef X_H
-#define X_H x_ver(0, 7, 0)
+#define X_H x_ver(0, 7, 1)
 
 
 /** @internal
@@ -545,7 +545,7 @@ X_INL int x_getch();
 /// @return The duration in the specified unit.
 /// @see @ref x_now
 X_INL double x_duration(
-    const char* unit, const struct timespec start, const struct timespec stop);
+    const char* unit, const struct timespec& start, const struct timespec& stop);
 
 /// @brief Get the current time point.
 /// @return The current time point.
@@ -648,35 +648,35 @@ private:
 #if X_ENABLE_CUDA
 /// @brief CUDA version of @ref x_duration.
 /// @see @ref x_duration
-X_INL double x_duration_cu(
+X_INL double x_duration_cuda(
     const char* unit, const cudaEvent_t start, const cudaEvent_t stop);
 
-/// @brief CUDA version of @ref x_stopwatch.
+/// @brief CUDA runtime version of @ref x_stopwatch.
 /// @see @ref x_stopwatch
-class x_stopwatch_cu
+class x_stopwatch_cuda
 {
 public:
-  X_INL x_stopwatch_cu(const unsigned int flags = cudaEventDefault);
+  X_INL x_stopwatch_cuda(const unsigned int flags = cudaEventDefault);
 
-  X_INL ~x_stopwatch_cu();
+  X_INL ~x_stopwatch_cuda();
 
   X_INL double elapsed() const;
 
   X_INL void reset();
 
   X_INL void tic(
-      cudaStream_t const stream = nullptr,
-      const unsigned int flags = cudaEventDefault);
+      cudaStream_t const stream = 0,
+      const unsigned int flags = cudaEventRecordDefault);
 
   X_INL void toc(
       const char* unit,
-      cudaStream_t const stream = nullptr,
-      const unsigned int flags = cudaEventDefault);
+      cudaStream_t const stream = 0,
+      const unsigned int flags = cudaEventRecordDefault);
 
   X_INL void toc(
       x_stopwatch_stats& stats, const char* unit, const size_t cycle,
-      cudaStream_t const stream = nullptr,
-      const unsigned int flags = cudaEventDefault);
+      cudaStream_t const stream = 0,
+      const unsigned int flags = cudaEventRecordDefault);
 
 private:
   cudaEvent_t m_start{nullptr};
@@ -1034,17 +1034,17 @@ X_INL x_err x_meminfo(size_t* avail, size_t* total);
 
 #if X_ENABLE_CUDA
 template<typename T>
-X_INL void x_free_cu(T*& ptr);
+X_INL void x_free_cuda(T*& ptr);
 
 template<typename T>
-X_INL void x_free_cu(volatile T*& ptr);
+X_INL void x_free_cuda(volatile T*& ptr);
 
 template<typename T>
-X_INL x_err x_malloc_cu(T** ptr, const size_t size);
+X_INL x_err x_malloc_cuda(T** ptr, const size_t size);
 
-X_INL x_err x_memcpy_cu(void* dst, const void* src, const size_t size);
+X_INL x_err x_memcpy_cuda(void* dst, const void* src, const size_t size);
 
-X_INL x_err x_meminfo_cu(size_t* avail, size_t* total);
+X_INL x_err x_meminfo_cuda(size_t* avail, size_t* total);
 #endif
 /** @} */  // Memory Management
 
@@ -1575,7 +1575,7 @@ X_INL int x_getch()
 
 //******************************************************* IMPL_Date_and_Time{{{
 X_INL double x_duration(
-    const char* unit, const struct timespec start, const struct timespec stop)
+    const char* unit, const struct timespec& start, const struct timespec& stop)
 {
   double diff{static_cast<double>(
       (stop.tv_sec - start.tv_sec) * 1000000000 + stop.tv_nsec - start.tv_nsec)};
@@ -1758,7 +1758,7 @@ void x_stopwatch::toc(
 // class x_stopwatch}}}
 
 #if X_ENABLE_CUDA
-X_INL double x_duration_cu(
+X_INL double x_duration_cuda(
     const char* unit, const cudaEvent_t start, const cudaEvent_t stop)
 {
   cudaError_t cerr = cudaEventSynchronize(stop);
@@ -1790,7 +1790,7 @@ X_INL double x_duration_cu(
 }
 
 // class x_stopwatch_cu{{{
-x_stopwatch_cu::x_stopwatch_cu(const unsigned int flags)
+x_stopwatch_cuda::x_stopwatch_cuda(const unsigned int flags)
 {
   cudaError_t cerr = cudaEventCreateWithFlags(&this->m_start, flags);
   if (cerr != cudaSuccess) {
@@ -1805,23 +1805,23 @@ x_stopwatch_cu::x_stopwatch_cu(const unsigned int flags)
   }
 }
 
-x_stopwatch_cu::~x_stopwatch_cu()
+x_stopwatch_cuda::~x_stopwatch_cuda()
 {
   cudaEventDestroy(this->m_start);
   cudaEventDestroy(this->m_stop);
 }
 
-double x_stopwatch_cu::elapsed() const
+double x_stopwatch_cuda::elapsed() const
 {
   return this->m_elapsed;
 }
 
-void x_stopwatch_cu::reset()
+void x_stopwatch_cuda::reset()
 {
   this->m_elapsed = 0.0;
 }
 
-void x_stopwatch_cu::tic(cudaStream_t const stream, const unsigned int flags)
+void x_stopwatch_cuda::tic(cudaStream_t const stream, const unsigned int flags)
 {
   cudaError_t cerr = cudaEventRecordWithFlags(this->m_start, stream, flags);
   if (cerr != cudaSuccess) {
@@ -1830,7 +1830,7 @@ void x_stopwatch_cu::tic(cudaStream_t const stream, const unsigned int flags)
   }
 }
 
-void x_stopwatch_cu::toc(
+void x_stopwatch_cuda::toc(
     const char* unit, cudaStream_t const stream, const unsigned int flags)
 {
   cudaError_t cerr = cudaEventRecordWithFlags(this->m_stop, stream, flags);
@@ -1866,7 +1866,7 @@ void x_stopwatch_cu::toc(
   this->m_elapsed = static_cast<double>(elapsed);
 }
 
-void x_stopwatch_cu::toc(
+void x_stopwatch_cuda::toc(
     x_stopwatch_stats& stats, const char* unit, const size_t cycle,
     cudaStream_t const stream, const unsigned int flags)
 {
@@ -2089,7 +2089,7 @@ x_err::operator bool() const
 #endif
 #if X_ENABLE_CUDA
       case x_err_cuda:
-        return this->m_val != cudaSuccess;
+        return static_cast<cudaError_t>(this->m_val) != cudaSuccess;
 #endif
       default:
         // NOTE: Covers the x_err_posix case.
@@ -2551,7 +2551,7 @@ X_INL x_err x_meminfo(size_t* avail, size_t* total)
 
 #if X_ENABLE_CUDA
 template<typename T>
-X_INL void x_free_cu(T*& ptr)
+X_INL void x_free_cuda(T*& ptr)
 {
   if (ptr != nullptr) {
     cudaFree(ptr);
@@ -2560,13 +2560,13 @@ X_INL void x_free_cu(T*& ptr)
 }
 
 template<typename T>
-X_INL void x_free_cu(volatile T*& ptr)
+X_INL void x_free_cuda(volatile T*& ptr)
 {
-  x_free_cu<T>(const_cast<T*&>(ptr));
+  x_free_cuda<T>(const_cast<T*&>(ptr));
 }
 
 template<typename T>
-X_INL x_err x_malloc_cu(T** ptr, const size_t size)
+X_INL x_err x_malloc_cuda(T** ptr, const size_t size)
 {
   if (*ptr != nullptr) {
     return x_err(x_err_posix, EINVAL);
@@ -2580,7 +2580,7 @@ X_INL x_err x_malloc_cu(T** ptr, const size_t size)
   return x_err();
 }
 
-X_INL x_err x_memcpy_cu(void* dst, const void* src, const size_t size)
+X_INL x_err x_memcpy_cuda(void* dst, const void* src, const size_t size)
 {
   if (dst == nullptr || src == nullptr) {
     return x_err(x_err_posix, EINVAL);
@@ -2596,7 +2596,7 @@ X_INL x_err x_memcpy_cu(void* dst, const void* src, const size_t size)
   return x_err();
 }
 
-X_INL x_err x_meminfo_cu(size_t* avail, size_t* total)
+X_INL x_err x_meminfo_cuda(size_t* avail, size_t* total)
 {
   if (avail == nullptr && total == nullptr) {
     return x_err(x_err_posix, EINVAL);

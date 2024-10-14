@@ -11,8 +11,14 @@ SET(CMAKE_CXX_STANDARD_REQUIRED ON)
 ADD_COMPILE_DEFINITIONS(X_ENABLE_ATOMIC=1)
 ADD_COMPILE_DEFINITIONS(X_ENABLE_SOCKET=1)
 
-ADD_EXECUTABLE(test_x_err test_x_err.cpp)
-ADD_EXECUTABLE(test_x_gadget test_x_gadget.cpp)
-ADD_EXECUTABLE(test_x_log test_x_log.cpp)
-ADD_EXECUTABLE(test_x_mem test_x_mem.cpp)
-ADD_EXECUTABLE(test_x_timing test_x_timing.cpp)
+SET(TEST_TARGETS
+  test_x_err
+  test_x_gadget
+  test_x_log
+  test_x_mem
+  test_x_stopwatch
+)
+
+FOREACH(TARGET ${TEST_TARGETS})
+  ADD_EXECUTABLE(${TARGET} ${TARGET}.cpp)
+ENDFOREACH()
