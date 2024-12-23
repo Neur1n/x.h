@@ -11,9 +11,10 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-10-14 19:15
+Last update: 2024-12-23 15:09
 Version: v0.8.0
 ******************************************************************************/
+#include <cuda_runtime_api.h>
 #ifndef X_H
 #define X_H x_ver(0, 8, 0)
 
@@ -233,7 +234,6 @@ Version: v0.8.0
 #include <cerrno>
 #include <cfloat>
 #include <cmath>
-#include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -332,8 +332,6 @@ Version: v0.8.0
 #endif
 #endif
 
-/// @brief This is provided to align with the C version of this library.
-#define X_EXC extern "C"
 #define X_INL inline
 /** @} */  // Miscellaneous
 
@@ -661,7 +659,7 @@ private:
 
 #if X_ENABLE_CU
 /// @brief Calculate the duration between two CUDA driver events.
-X_INL double x_duration(
+X_INL double x_duration_cu(
     const char* unit, const CUevent start, const CUevent stop);
 
 /// @brief CUDA driver version of @ref x_stopwatch.
@@ -700,7 +698,7 @@ private:
 
 #if X_ENABLE_CUDA
 /// @brief Calculate the duration between two CUDA runtime events.
-X_INL double x_duration(
+X_INL double x_duration_cuda(
     const char* unit, const cudaEvent_t start, const cudaEvent_t stop);
 
 /// @brief CUDA runtime version of @ref x_stopwatch.
@@ -758,6 +756,14 @@ private:
     abort(); \
   } \
 } while (false)
+
+/// @brief Wrapping the error handling of a function call.
+/// @param cat The error category, should be one of the `x_err_` enumerations.
+/// @param func The function to call.
+/// @param ... The arguments of the function.
+/// @return An instance of @ref x_err.
+#define x_check(cat, func, ...) \
+  _x_check_impl(__FILENAME__, #func, __LINE__, cat, func, ##__VA_ARGS__)
 
 /// @brief Check if an instance of @ref x_err indicates a failure.
 /// @param err The instance of @ref x_err.
@@ -949,10 +955,9 @@ X_INL x_err x_split_path(
 X_INL size_t x_ncpu();
 
 /// @brief Get the number of GPU devices.
-/// @remark Currently, this function only works with NVIDIA GPUs. If
-///         `X_ENABLE_CUDA` is set to a falsy value, this function will always
-///         return 0.
-X_INL size_t x_ngpu();
+/// @param api The API to query, must be one of "cu" or "cuda". If the API is
+///            not supported, the return value is 0.
+X_INL size_t x_ngpu(const char* api);
 /** @} */  // Hardware
 
 /******************************************************************************
@@ -1080,29 +1085,23 @@ template<typename T>
 X_INL void x_free(T*& ptr);
 
 template<typename T>
-X_INL void x_free(volatile T*& ptr);
-
-template<typename T>
 X_INL x_err x_malloc(T** ptr, const size_t size);
 
 X_INL x_err x_memcpy(void* dst, const void* src, const size_t size);
 
 X_INL x_err x_meminfo(size_t* avail, size_t* total);
 
+#if X_ENABLE_CU
+X_INL x_err x_meminfo_cu(size_t* avail, size_t* total);
+
+X_INL const char* x_memtype_cu(const CUdeviceptr ptr);
+#endif  // X_ENABLE_CU
+
 #if X_ENABLE_CUDA
-template<typename T>
-X_INL void x_free_cuda(T*& ptr);
-
-template<typename T>
-X_INL void x_free_cuda(volatile T*& ptr);
-
-template<typename T>
-X_INL x_err x_malloc_cuda(T** ptr, const size_t size);
-
-X_INL x_err x_memcpy_cuda(void* dst, const void* src, const size_t size);
-
 X_INL x_err x_meminfo_cuda(size_t* avail, size_t* total);
-#endif
+
+X_INL const char* x_memtype_cuda(const void* ptr);
+#endif  // X_ENABLE_CUDA
 /** @} */  // Memory Management
 
 /******************************************************************************
@@ -1143,8 +1142,8 @@ X_INL x_err x_meminfo_cuda(size_t* avail, size_t* total);
 
 template<char level, typename... Args>
 X_INL void _x_log_impl(
-    const char* filename, const char* function, const long line, FILE* stream,
-    const char* format, Args&&... args);
+    const char* filename, const char* function, const long long line,
+    FILE* stream, const char* format, Args&&... args);
 
 /// @brief Log a message with a specified log level.
 /// @param level The log level, one of 'p', 'f', 'e', 'w', 'i', 'd'.
@@ -1241,11 +1240,15 @@ X_INL uint8_t x_cks_xor(const void* data, const size_t size)
 
 #if X_ENABLE_SOCKET
 // class x_skt{{{
-x_skt::x_skt()
+X_INL x_skt::x_skt()
 {
 }
 
-x_err x_skt::init(const int type)
+X_INL x_skt::~x_skt()
+{
+}
+
+X_INL x_err x_skt::init(const int type)
 {
 #if X_WINDOWS
   WSADATA data{0};
@@ -1285,7 +1288,7 @@ x_err x_skt::init(const int type)
   return x_err();
 }
 
-x_err x_skt::accept(x_skt* client)
+X_INL x_err x_skt::accept(x_skt* client)
 {
   if (client == nullptr) {
     return x_err(x_err_posix, EINVAL);
@@ -1313,7 +1316,7 @@ x_err x_skt::accept(x_skt* client)
   return x_err();
 }
 
-x_err x_skt::addr(char* ip, uint16_t* port)
+X_INL x_err x_skt::addr(char* ip, uint16_t* port)
 {
   if (ip == nullptr || port == nullptr) {
     return x_err(x_err_posix, EINVAL);
@@ -1330,7 +1333,7 @@ x_err x_skt::addr(char* ip, uint16_t* port)
   return x_err();
 }
 
-x_err x_skt::close()
+X_INL x_err x_skt::close()
 {
 #if X_WINDOWS
   if (closesocket(this->m_hndl) != 0) {
@@ -1343,7 +1346,7 @@ x_err x_skt::close()
 #endif
 }
 
-x_err x_skt::connect(const char* ip, const uint16_t port)
+X_INL x_err x_skt::connect(const char* ip, const uint16_t port)
 {
   struct sockaddr_in sin{0};
   sin.sin_family = AF_INET;
@@ -1361,7 +1364,7 @@ x_err x_skt::connect(const char* ip, const uint16_t port)
     ? x_err() : x_err(x_err_socket);
 }
 
-x_err x_skt::getopt(const int lvl, const int opt, void* val, socklen_t* len)
+X_INL x_err x_skt::getopt(const int lvl, const int opt, void* val, socklen_t* len)
 {
   if (val == nullptr || len == nullptr) {
     return x_err(x_err_posix, EINVAL);
@@ -1371,7 +1374,7 @@ x_err x_skt::getopt(const int lvl, const int opt, void* val, socklen_t* len)
     ? x_err() : x_err(x_err_socket);
 }
 
-x_err x_skt::listen(const char* ip, const uint16_t port)
+X_INL x_err x_skt::listen(const char* ip, const uint16_t port)
 {
   struct sockaddr_in sin{0};
   sin.sin_family = AF_INET;
@@ -1394,7 +1397,7 @@ x_err x_skt::listen(const char* ip, const uint16_t port)
   return ierr == 0 ? x_err() : x_err(x_err_socket);
 }
 
-x_err x_skt::recv(void* buf, const size_t size, const int flags)
+X_INL x_err x_skt::recv(void* buf, const size_t size, const int flags)
 {
   if (buf == nullptr || size == 0) {
     return x_err(x_err_posix, EINVAL);
@@ -1422,7 +1425,7 @@ x_err x_skt::recv(void* buf, const size_t size, const int flags)
   return x_err();
 }
 
-x_err x_skt::recvv(x_iov* iov, const size_t count, const int flags)
+X_INL x_err x_skt::recvv(x_iov* iov, const size_t count, const int flags)
 {
   if (iov == nullptr || count == 0) {
     return x_err(x_err_posix, EINVAL);
@@ -1461,7 +1464,7 @@ x_err x_skt::recvv(x_iov* iov, const size_t count, const int flags)
   return err;
 }
 
-x_err x_skt::send(const void* buf, const size_t size, const int flags)
+X_INL x_err x_skt::send(const void* buf, const size_t size, const int flags)
 {
 #if X_WINDOWS
   int remain{static_cast<int>(size)};
@@ -1484,7 +1487,7 @@ x_err x_skt::send(const void* buf, const size_t size, const int flags)
   return x_err();
 }
 
-x_err x_skt::sendv(const x_iov* iov, const size_t count, const int flags)
+X_INL x_err x_skt::sendv(const x_iov* iov, const size_t count, const int flags)
 {
   if (iov == nullptr || count == 0) {
     return x_err(x_err_posix, EINVAL);
@@ -1522,7 +1525,7 @@ x_err x_skt::sendv(const x_iov* iov, const size_t count, const int flags)
   return err;
 }
 
-x_err x_skt::setopt(
+X_INL x_err x_skt::setopt(
     const int lvl, const int opt, const void* val, const socklen_t len)
 {
   if (val == nullptr) {
@@ -1703,7 +1706,7 @@ X_INL const char* x_timestamp(char* buf, const size_t bsz)
   return buf;
 }
 
-// class _x_swstas_{{{
+// struct _x_stopwatch_stats_{{{
 X_INL x_stopwatch_stats::_x_stopwatch_stats_()
 {
   this->reset();
@@ -1743,7 +1746,7 @@ X_INL void x_stopwatch_stats::reset()
   this->min.idx = 0;
   this->min.val = DBL_MAX;
 }
-// struct _x_swstats_}}}
+// struct _x_stopwatch_stats_}}}
 
 // class x_stopwatch{{{
 x_stopwatch::x_stopwatch()
@@ -1815,7 +1818,7 @@ void x_stopwatch::toc(
 // class x_stopwatch}}}
 
 #if X_ENABLE_CU
-X_INL double x_duration(
+X_INL double x_duration_cu(
     const char* unit, const CUevent start, const CUevent stop)
 {
   const char* msg{nullptr};
@@ -1823,11 +1826,10 @@ X_INL double x_duration(
   CUresult cres = cuEventSynchronize(stop);
   if (cres != CUDA_SUCCESS) {
     cres = cuGetErrorString(cres, &msg);
-    if (cres != CUDA_SUCCESS) {
-      cuGetErrorString(cres, &msg);
-      fprintf(stderr, "cuGetErrorString: %s\n", msg);
-    } else {
+    if (cres == CUDA_SUCCESS) {
       fprintf(stderr, "cuEventSynchronize: %s\n", msg);
+    } else {
+      fprintf(stderr, "cuEventSynchronize: unknown error %d\n", cres);
     }
     return -1.0;
   }
@@ -1836,11 +1838,10 @@ X_INL double x_duration(
   cres = cuEventElapsedTime(&ms, start, stop);
   if (cres != CUDA_SUCCESS) {
     cres = cuGetErrorString(cres, &msg);
-    if (cres != CUDA_SUCCESS) {
-      cuGetErrorString(cres, &msg);
-      fprintf(stderr, "cuGetErrorString: %s\n", msg);
-    } else {
+    if (cres == CUDA_SUCCESS) {
       fprintf(stderr, "cuEventElapsedTime: %s\n", msg);
+    } else {
+      fprintf(stderr, "cuEventElapsedTime: unknown error %d\n", cres);
     }
     return -1.0;
   }
@@ -1868,22 +1869,22 @@ X_INL x_stopwatch_cu::x_stopwatch_cu(const unsigned int flags)
   CUresult cres = cuEventCreate(&this->m_start, flags);
   if (cres != CUDA_SUCCESS) {
     cres = cuGetErrorString(cres, &msg);
-    if (cres != CUDA_SUCCESS) {
-      cuGetErrorString(cres, &msg);
-      throw std::runtime_error(std::string("cuGetErrorString: ") + msg);
-    } else {
+    if (cres == CUDA_SUCCESS) {
       throw std::runtime_error(std::string("cuEventCreate: ") + msg);
+    } else {
+      throw std::runtime_error(
+          std::string("cuEventCreate: unknown error ") + std::to_string(cres));
     }
   }
 
   cres = cuEventCreate(&this->m_stop, flags);
   if (cres != CUDA_SUCCESS) {
     cres = cuGetErrorString(cres, &msg);
-    if (cres != CUDA_SUCCESS) {
-      cuGetErrorString(cres, &msg);
-      throw std::runtime_error(std::string("cuGetErrorString: ") + msg);
-    } else {
+    if (cres == CUDA_SUCCESS) {
       throw std::runtime_error(std::string("cuEventCreate: ") + msg);
+    } else {
+      throw std::runtime_error(
+          std::string("cuEventCreate: unknown error ") + std::to_string(cres));
     }
   }
 }
@@ -1911,11 +1912,11 @@ X_INL void x_stopwatch_cu::tic(CUstream const stream, const unsigned int flags)
   CUresult cres = cuEventRecordWithFlags(this->m_start, stream, flags);
   if (cres != CUDA_SUCCESS) {
     cres = cuGetErrorString(cres, &msg);
-    if (cres != CUDA_SUCCESS) {
-      cuGetErrorString(cres, &msg);
-      throw std::runtime_error(std::string("cuGetErrorString: ") + msg);
-    } else {
+    if (cres == CUDA_SUCCESS) {
       throw std::runtime_error(std::string("cuEventRecordWithFlags: ") + msg);
+    } else {
+      throw std::runtime_error(
+          std::string("cuEventRecordWithFlags: unknown error ") + std::to_string(cres));
     }
   }
 }
@@ -1928,49 +1929,15 @@ X_INL void x_stopwatch_cu::toc(
   CUresult cres = cuEventRecordWithFlags(this->m_stop, stream, flags);
   if (cres != CUDA_SUCCESS) {
     cres = cuGetErrorString(cres, &msg);
-    if (cres != CUDA_SUCCESS) {
-      cuGetErrorString(cres, &msg);
-      throw std::runtime_error(std::string("cuGetErrorString: ") + msg);
-    } else {
+    if (cres == CUDA_SUCCESS) {
       throw std::runtime_error(std::string("cuEventRecordWithFlags: ") + msg);
-    }
-  }
-
-  cres = cuEventSynchronize(this->m_stop);
-  if (cres != CUDA_SUCCESS) {
-    cres = cuGetErrorString(cres, &msg);
-    if (cres != CUDA_SUCCESS) {
-      cuGetErrorString(cres, &msg);
-      throw std::runtime_error(std::string("cuGetErrorString: ") + msg);
     } else {
-      throw std::runtime_error(std::string("cuEventSynchronize: ") + msg);
+      throw std::runtime_error(
+          std::string("cuEventRecordWithFlags: unknown error ") + std::to_string(cres));
     }
   }
 
-  float elapsed{0.0f};
-  cres = cuEventElapsedTime(&elapsed, this->m_start, this->m_stop);
-  if (cres != CUDA_SUCCESS) {
-    cres = cuGetErrorString(cres, &msg);
-    if (cres != CUDA_SUCCESS) {
-      cuGetErrorString(cres, &msg);
-      throw std::runtime_error(std::string("cuGetErrorString: ") + msg);
-    } else {
-      throw std::runtime_error(std::string("cuEventElapsedTime: ") + msg);
-    }
-  }
-
-  if (strcmp(unit, "h") == 0) {
-    elapsed /= 3600000.0f;
-  } else if (strcmp(unit, "m") == 0) {
-    elapsed /= 60000.0f;
-  } else if (strcmp(unit, "s") == 0) {
-    elapsed /= 1000.0f;
-  } else if (strcmp(unit, "us") == 0) {
-    elapsed *= 1000.0f;
-  } else if (strcmp(unit, "ns") == 0) {
-    elapsed *= 1000000.0f;
-  }
-  this->m_elapsed = static_cast<double>(elapsed);
+  this->m_elapsed = x_duration_cu(unit, this->m_start, this->m_stop);
 }
 
 X_INL void x_stopwatch_cu::toc(
@@ -2053,13 +2020,13 @@ x_stopwatch_cuda::x_stopwatch_cuda(const unsigned int flags)
   cudaError_t cerr = cudaEventCreateWithFlags(&this->m_start, flags);
   if (cerr != cudaSuccess) {
     throw std::runtime_error(
-        std::string("cudaEventCreate: ") + cudaGetErrorString(cerr));
+        std::string("cudaEventCreateWithFlags: ") + cudaGetErrorString(cerr));
   }
 
   cerr = cudaEventCreate(&this->m_stop, flags);
   if (cerr != cudaSuccess) {
     throw std::runtime_error(
-        std::string("cudaEventCreate: ") + cudaGetErrorString(cerr));
+        std::string("cudaEventCreateWithFlags: ") + cudaGetErrorString(cerr));
   }
 }
 
@@ -2084,7 +2051,7 @@ void x_stopwatch_cuda::tic(cudaStream_t const stream, const unsigned int flags)
   cudaError_t cerr = cudaEventRecordWithFlags(this->m_start, stream, flags);
   if (cerr != cudaSuccess) {
     throw std::runtime_error(
-        std::string("cudaEventRecord: ") + cudaGetErrorString(cerr));
+        std::string("cudaEventRecordWithFlags: ") + cudaGetErrorString(cerr));
   }
 }
 
@@ -2094,7 +2061,7 @@ void x_stopwatch_cuda::toc(
   cudaError_t cerr = cudaEventRecordWithFlags(this->m_stop, stream, flags);
   if (cerr != cudaSuccess) {
     throw std::runtime_error(
-        std::string("cudaEventRecord: ") + cudaGetErrorString(cerr));
+        std::string("cudaEventRecordWithFlags: ") + cudaGetErrorString(cerr));
   }
 
   cerr = cudaEventSynchronize(this->m_stop);
@@ -2103,25 +2070,7 @@ void x_stopwatch_cuda::toc(
         std::string("cudaEventSynchronize: ") + cudaGetErrorString(cerr));
   }
 
-  float elapsed{0.0f};
-  cerr = cudaEventElapsedTime(&elapsed, this->m_start, this->m_stop);
-  if (cerr != cudaSuccess) {
-    throw std::runtime_error(
-        std::string("cudaEventElapsedTime: ") + cudaGetErrorString(cerr));
-  }
-
-  if (strcmp(unit, "h") == 0) {
-    elapsed /= 3600000.0f;
-  } else if (strcmp(unit, "m") == 0) {
-    elapsed /= 60000.0f;
-  } else if (strcmp(unit, "s") == 0) {
-    elapsed /= 1000.0f;
-  } else if (strcmp(unit, "us") == 0) {
-    elapsed *= 1000.0f;
-  } else if (strcmp(unit, "ns") == 0) {
-    elapsed *= 1000000.0f;
-  }
-  this->m_elapsed = static_cast<double>(elapsed);
+  this->m_elapsed = x_duration_cuda(unit, this->m_start, this->m_stop);
 }
 
 void x_stopwatch_cuda::toc(
@@ -2164,10 +2113,34 @@ void x_stopwatch_cuda::toc(
   }
 }
 // class x_stopwatch_cuda}}}
-#endif
+#endif  // X_ENABLE_CUDA
 // IMPL_Date_and_Time}}}
 
 //****************************************************** IMPL_Error_Handling{{{
+template<typename Func, typename... Args>
+X_INL x_err _x_check_impl(
+    const char* filename, const char* function, const long long line,
+    const int32_t cat, Func&& func, Args&&... args)
+{
+  static_assert(
+      std::is_same_v<std::invoke_result_t<Func, Args...>, x_err>
+      || std::is_convertible_v<std::invoke_result_t<Func, Args...>, int32_t>,
+      "Return type of 'func' must be x_err or convertible to int32_t.");
+
+  x_err err;
+
+  if constexpr (std::is_same_v<std::invoke_result_t<Func, Args...>, x_err>) {
+    err = func(std::forward<Args>(args)...);
+  } else {
+    err = x_err(cat, static_cast<int32_t>(func(std::forward<Args>(args)...)));
+  }
+  if (err) {
+    _x_log_impl<'e'>(filename, function, line, stderr, "%s", err.msg());
+  }
+
+  return err;
+}
+
 X_INL bool x_fail(const x_err& err)
 {
   return err;
@@ -2244,11 +2217,10 @@ const char* x_err::msg()
       {
         const char* msg{nullptr};
         CUresult cres = cuGetErrorString(static_cast<CUresult>(this->m_val), &msg);
-        if (cres != CUDA_SUCCESS) {
-          cuGetErrorString(cres, &msg);
-          this->m_msg = std::string("cuGetErrorString: ") + std::string(msg);
-        } else {
+        if (cres == CUDA_SUCCESS) {
           this->m_msg = msg;
+        } else {
+          this->m_msg = std::string("Unknown CUDA driver error ") + std::to_string(cres);
         }
       }
       break;
@@ -2571,20 +2543,47 @@ X_INL size_t x_ncpu()
 #endif
 }
 
-X_INL size_t x_ngpu()
+X_INL size_t x_ngpu(const char* api)
 {
-#if X_ENABLE_CUDA
-  int count{0};
-  cudaError_t cerr = cudaGetDeviceCount(&count);
-  if (cerr != cudaSuccess) {
-    fprintf(stderr, "cudaGetDeviceCount: %s\n", cudaGetErrorString(cerr));
+  if (x_strmty(api)) {
     return 0;
   }
 
-  return static_cast<size_t>(count);
+  if (strcmp(api, "cu") == 0) {
+#if X_ENABLE_CU
+    int count{0};
+    CUresult cres = cuDeviceGetCount(&count);
+    if (cres != CUDA_SUCCESS) {
+      const char* msg{nullptr};
+      cres = cuGetErrorString(cres, &msg);
+      if (cres == CUDA_SUCCESS) {
+        fprintf(stderr, "cuDeviceGetCount: %s\n", msg);
+      } else {
+        fprintf(stderr, "cuDeviceGetCount: unknown error %d\n", cres);
+      }
+      return 0;
+    }
+
+    return static_cast<size_t>(count);
 #else
-  return 0;
+    return 0;
 #endif
+  } else if (strcmp(api, "cuda") == 0) {
+#if X_ENABLE_CUDA
+    int count{0};
+    cudaError_t cerr = cudaGetDeviceCount(&count);
+    if (cerr != cudaSuccess) {
+      fprintf(stderr, "cudaGetDeviceCount: %s\n", cudaGetErrorString(cerr));
+      return 0;
+    }
+
+    return static_cast<size_t>(count);
+#else
+    return 0;
+#endif
+  }
+
+  return 0;
 }
 // IMPL_Hardware}}}
 
@@ -2755,12 +2754,6 @@ X_INL void x_free(T*& ptr)
 }
 
 template<typename T>
-X_INL void x_free(volatile T*& ptr)
-{
-  x_free<T>(const_cast<T*&>(ptr));
-}
-
-template<typename T>
 X_INL x_err x_malloc(T** ptr, const size_t size)
 {
   if (*ptr != nullptr) {
@@ -2825,53 +2818,47 @@ X_INL x_err x_meminfo(size_t* avail, size_t* total)
   return x_err();
 }
 
-#if X_ENABLE_CUDA
-template<typename T>
-X_INL void x_free_cuda(T*& ptr)
+#if X_ENABLE_CU
+X_INL x_err x_meminfo_cu(size_t* avail, size_t* total)
 {
-  if (ptr != nullptr) {
-    cudaFree(ptr);
-    ptr = nullptr;
-  }
-}
-
-template<typename T>
-X_INL void x_free_cuda(volatile T*& ptr)
-{
-  x_free_cuda<T>(const_cast<T*&>(ptr));
-}
-
-template<typename T>
-X_INL x_err x_malloc_cuda(T** ptr, const size_t size)
-{
-  if (*ptr != nullptr) {
+  if (avail == nullptr && total == nullptr) {
     return x_err(x_err_posix, EINVAL);
   }
 
-  cudaError_t cerr = cudaMalloc(ptr, size);
-  if (cerr != cudaSuccess) {
-    return x_err(x_err_cuda, cerr);
+  CUresult cres = cuMemGetInfo(avail, total);
+  if (cres != CUDA_SUCCESS) {
+    return x_err(x_err_cu, cres);
   }
 
   return x_err();
 }
 
-X_INL x_err x_memcpy_cuda(void* dst, const void* src, const size_t size)
+X_INL const char* x_memtype_cu(const CUdeviceptr ptr)
 {
-  if (dst == nullptr || src == nullptr) {
-    return x_err(x_err_posix, EINVAL);
-  }
+  static const char* type[] = {"Unknown", "Host", "Device", "Array", "Unified"};
 
-  if (size != 0) {
-    cudaError_t cerr = cudaMemcpy(dst, src, size, cudaMemcpyDefault);
-    if (cerr != cudaSuccess) {
-      return x_err(x_err_cuda, cerr);
+  CUmemorytype attr;
+  CUresult cres = cuPointerGetAttribute(&attr, CU_POINTER_ATTRIBUTE_MEMORY_TYPE, ptr);
+  if (cres != CUDA_SUCCESS) {
+    const char* msg{nullptr};
+    cres = cuGetErrorString(cres, &msg);
+    if (cres == CUDA_SUCCESS) {
+      fprintf(stderr, "cuPointerGetAttribute: %s\n", msg);
+    } else {
+      fprintf(stderr, "cuPointerGetAttribute: unknown error %d\n", cres);
     }
+    return "Unknown";
   }
 
-  return x_err();
-}
+  if (attr >= CU_MEMORYTYPE_HOST && attr <= CU_MEMORYTYPE_UNIFIED) {
+    return type[attr];
+  }
 
+  return "Unknown";
+}
+#endif  // X_ENABLE_CU
+
+#if X_ENABLE_CUDA
 X_INL x_err x_meminfo_cuda(size_t* avail, size_t* total)
 {
   if (avail == nullptr && total == nullptr) {
@@ -2885,7 +2872,26 @@ X_INL x_err x_meminfo_cuda(size_t* avail, size_t* total)
 
   return x_err();
 }
-#endif
+
+X_INL const char* x_memtype_cuda(const void* ptr)
+{
+  static const char* type[] = {"Unregistered", "Host", "Device", "Managed"};
+
+  cudaPointerAttributes attr;
+  cudaError_t cerr = cudaPointerGetAttributes(&attr, ptr);
+  if (cerr != cudaSuccess) {
+    fprintf(stderr, "cudaPointerGetAttributes: %s\n", cudaGetErrorString(cerr));
+    return "Unknown";
+  }
+
+  if (attr.type >= cudaMemoryTypeUnregistered
+      && attr.type <= cudaMemoryTypeManaged) {
+    return type[attr.type];
+  }
+
+  return "Unknown";
+}
+#endif  // X_ENABLE_CUDA
 // IMPL_Memory_Management}}}
 
 //********************************************************* IMPL_Standard_IO{{{
@@ -2910,7 +2916,7 @@ X_INL x_err x_meminfo_cuda(size_t* avail, size_t* total)
 template<char level>
 X_INL void _x_log_prefix(
     char* buf, size_t bsz,
-    const char* filename, const char* function, const long line)
+    const char* filename, const char* function, const long long line)
 {
   char timestamp[26]{0};
 
@@ -2918,14 +2924,14 @@ X_INL void _x_log_prefix(
   snprintf(buf, bsz, "[%c %s] ", toupper(level), x_timestamp(timestamp, 26));
 #else
   snprintf(
-      buf, bsz, "[%c %s | %s - %s - %ld] ",
+      buf, bsz, "[%c %s | %s - %s - %lld] ",
       toupper(level), x_timestamp(timestamp, 26), filename, function, line);
 #endif
 }
 
 template<char level, typename... Args>
 X_INL void _x_log_impl(
-    const char* filename, const char* function, const long line,
+    const char* filename, const char* function, const long long line,
     FILE* file, const char* format, Args&&... args)
 {
   char color_level[8]{0};

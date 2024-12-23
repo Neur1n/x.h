@@ -5,25 +5,50 @@ int main(int argc, char** argv)
 {
   x_err err;
 
-  double* ptr{nullptr};
+  // CUDA driver API error
+  CUdeviceptr ptr{0};
+  cuInit(0);
 
-  err = x_malloc_cuda(&ptr, sizeof(double));
+  CUdevice device{0};
+  cuDeviceGet(&device, 0);
+
+  CUcontext context{nullptr};
+  cuCtxCreate(&context, 0, device);
+
+  err.set(x_err_cuda, cuMemAlloc(&ptr, sizeof(double)));
   if (err) {
-    x_log('e', nullptr, "x_malloc: %s", err.msg());
-    return EXIT_FAILURE;
+    x_log('e', nullptr, "cuMemAllocHost: %s", err.msg());
   }
 
-  cudaPointerAttributes attr;
-  cudaError_t cerr = cudaPointerGetAttributes(&attr, ptr);
-  if (cerr != cudaSuccess) {
-    err.set(x_err_cuda, cerr);
-    x_log('e', nullptr, "cudaPointerGetAttributes: %s", err.msg());
-    return EXIT_FAILURE;
+  x_log('i', nullptr, "ptr type: %s", x_memtype_cu(ptr));
+
+  if (ptr != 0) {
+    err.set(x_err_cuda, cuMemFree(ptr));
+    if (err) {
+      x_log('e', nullptr, "cuMemFree: %s", err.msg());
+    }
+    ptr = 0;
   }
 
-  x_log('i', nullptr, "Pointer type: %d", static_cast<int>(attr.type));
+  cuCtxDestroy(context);
 
-  x_free_cuda(ptr);
+  // CUDA runtime API error
+  double* mem{nullptr};
+
+  err.set(x_err_cuda, cudaMalloc(&mem, sizeof(double)));
+  if (err) {
+    x_log('e', nullptr, "cudaMalloc: %s", err.msg());
+  }
+
+  x_log('i', nullptr, "mem type: %s", x_memtype_cuda(mem));
+
+  if (mem != nullptr) {
+    err.set(x_err_cuda, cudaFree(mem));
+    if (err) {
+      x_log('e', nullptr, "cudaFree: %s", err.msg());
+    }
+    mem = nullptr;
+  }
 
   return 0;
 }
