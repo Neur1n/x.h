@@ -11,10 +11,9 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 
-Last update: 2024-12-23 15:09
+Last update: 2025-01-24 19:48
 Version: v0.8.0
 ******************************************************************************/
-#include <cuda_runtime_api.h>
 #ifndef X_H
 #define X_H x_ver(0, 8, 0)
 
@@ -854,9 +853,7 @@ public:
       bool (*fail)(const int32_t) = nullptr);
 
   /// @brief Constructor with an error category, an error value, and a custom
-  ///        error message.
-  /// @see @ref x_err::x_err(const int32_t, const int32_t, bool (*)(const int32_t))
-  ///      for the usage of the failure predicate.
+  ///        predicate.
   X_INL explicit x_err(
       const int32_t cat, const int32_t val, const char* msg,
       bool (*fail)(const int32_t) = nullptr);
@@ -976,6 +973,7 @@ static constexpr T x_Pi = static_cast<T>(3.1415926535897932384626433832795028841
 /// @param n The scale factor.
 template<typename T>
 X_INL constexpr T x_KiB(const T n);
+
 /// @brief Mebibyte constant generator, i.e., 1 MiB = 1048576 bytes.
 /// @param n The scale factor.
 template<typename T>
